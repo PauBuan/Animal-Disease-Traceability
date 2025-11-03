@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bar, Pie, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -13,12 +14,15 @@ import {
   Legend
 } from "chart.js";
 import './App.css'; // Reuse custom vars
+import TransactionsPage from './TransactionsPage';
 
 // Register ChartJS components
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, LineElement, PointElement, Title, Tooltip, Legend);
 
 export default function Dashboard() {
   const [activeCard, setActiveCard] = useState(null);
+  const [currentPage, setCurrentPage] = useState('dashboard');
+  const navigate = useNavigate();
 
   const healthStatusData = [
     { animal: 'Hogs', healthy: 950, sick: 30, quarantined: 20 },
@@ -112,9 +116,29 @@ export default function Dashboard() {
     },
   };
 
+  if (currentPage === 'transactions') {
+    return <TransactionsPage />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-white pt-24 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-screen-2xl mx-auto">
+        {/* Navigation Buttons */}
+        <div className="flex justify-center mb-8">
+          <button
+            onClick={() => setCurrentPage('dashboard')}
+            className={`px-6 py-2 mx-2 rounded-lg font-medium ${currentPage === 'dashboard' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+          >
+            Dashboard
+          </button>
+          <button
+            onClick={() => setCurrentPage('transactions')}
+            className={`px-6 py-2 mx-2 rounded-lg font-medium ${currentPage === 'transactions' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+          >
+            Transactions
+          </button>
+        </div>
+
         <h1 className="text-4xl font-bold text-green-700 text-center mb-12 tracking-tight">
           Dashboard Overview
         </h1>
@@ -147,7 +171,10 @@ export default function Dashboard() {
               <div className="h-72">
                 <Bar data={movementData} options={chartOptions} />
               </div>
-              <button className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition w-full font-medium mt-5">
+              <button
+                onClick={() => navigate('/animal-movement')}
+                className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition w-full font-medium mt-5"
+              >
                 View Details
               </button>
             </div>

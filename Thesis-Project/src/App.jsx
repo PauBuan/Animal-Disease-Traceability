@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Route, Routes, Link } from "react-router-dom";
 import Dashboard from "./Dashboard";
 import Login from "./login";
 import AdminLogin from "./AdminLogin"; // 👈 add this
+import AnimalMovement from "./AnimalMovement";
 
 export default function App() {
   return (
@@ -58,6 +59,7 @@ export default function App() {
               }
             />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/animal-movement" element={<AnimalMovement />} />
             <Route path="/login" element={<Login />} />
             <Route path="/adminlogin" element={<AdminLogin />} /> {/* 👈 add this */}
           </Routes>
