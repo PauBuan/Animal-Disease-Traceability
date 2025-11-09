@@ -16,10 +16,9 @@ const AnimalMovement = () => {
 
   // Mock data for animal populations
   const animalData = [
-    { position: [14.3165, 121.1110], type: 'Cattle', count: 580, color: 'blue' },
-    { position: [14.3128, 121.1185], type: 'Swine', count: 950, color: 'red' },
-    { position: [14.3192, 121.1078], type: 'Poultry', count: 2450, color: 'green' },
-    { position: [14.3105, 121.1156], type: 'Carabaos', count: 395, color: 'orange' },
+    { position: [14.3235, 121.1050], type: 'Hogs', count: 80, color: 'blue' },
+    { position: [14.3245, 121.1066], type: 'Goats', count: 47, color: 'gray' },
+    { position: [14.3250, 121.1071], type: 'Native Poultry', count: 15, color: 'green' },
   ];
 
   return (
@@ -41,7 +40,7 @@ const AnimalMovement = () => {
               <Circle
                 key={index}
                 center={animal.position}
-                radius={animal.count * 0.1} // Scale radius based on count
+                radius={animal.count * 0.7} // Scale radius based on count
                 pathOptions={{ color: animal.color, fillColor: animal.color, fillOpacity: 0.5 }}
               >
                 <Popup>
