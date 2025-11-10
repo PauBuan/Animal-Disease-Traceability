@@ -20,7 +20,7 @@ export default function AdminLayout() {
   const handleLogout = () => {
     // In a real app, you'd clear the auth token here
     console.log("Admin logged out");
-    navigate("/adminlogin");
+    navigate("/AdminLogin");
   };
 
   // Helper function to determine if a link is active

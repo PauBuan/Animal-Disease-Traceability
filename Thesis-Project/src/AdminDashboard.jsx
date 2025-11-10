@@ -23,21 +23,21 @@ const santaRosaCenter = [14.28, 121.09]; // Approx. center of Santa Rosa, Laguna
 const outbreakHotspots = [
   {
     id: 1,
-    position: [14.285, 121.095], // Brgy. Dita
+    position: [14.282358324245413, 121.11142645683873], // Brgy. Dita
     name: "Brgy. Dita",
     details: "Avian Influenza - 3 Active Cases",
     status: "Active",
   },
   {
     id: 2,
-    position: [14.275, 121.085], // Brgy. Pooc
+    position: [14.300708525997425, 121.11186580202454], // Brgy. Pooc
     name: "Brgy. Pooc",
     details: "African Swine Fever (ASF) - 2 Farms Under Watch",
     status: "Monitoring",
   },
   {
     id: 3,
-    position: [14.29, 121.1], // Brgy. Macabling
+    position: [14.300378210465363, 121.09871278073743], // Brgy. Macabling
     name: "Brgy. Macabling",
     details: "Foot-and-Mouth Disease - 1 Farm Contained",
     status: "Contained",

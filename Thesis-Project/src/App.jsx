@@ -11,6 +11,9 @@ import Dashboard from "./Dashboard";
 import Login from "./login";
 import AnimalMovement from "./AnimalMovement";
 import TransactionsPage from "./TransactionsPage";
+import Table from "./Table";
+import OutbreakStats from "./OutbreakStats";
+import SummaryReport from "./SummaryReport";
 
 // --- Admin Page Imports ---
 import AdminLogin from "./AdminLogin";
@@ -116,6 +119,9 @@ export default function App() {
           <Route path="animal-movement" element={<AnimalMovement />} />
           <Route path="login" element={<Login />} />
           <Route path="TransactionsPage" element={<TransactionsPage />} />
+          <Route path="health-table" element={<Table />} />
+          <Route path="outbreak-stats" element={<OutbreakStats />} />
+          <Route path="summary-report" element={<SummaryReport />} />
         </Route>
 
         {/* 2. Admin Login Route */}
