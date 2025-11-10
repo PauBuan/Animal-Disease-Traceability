@@ -8,35 +8,29 @@ const AdminLogin = () => {
   const handleAdminLogin = (e) => {
     e.preventDefault();
     console.log("Admin login attempted");
-    // Simulate successful login
     navigate("/admin/dashboard");
+  };
+
+  const handleBack = () => {
+    navigate("/"); // or "/dashboard" if you prefer
   };
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* ==================== HEADER (copied from PublicLayout) ==================== */}
+      {/* ==================== HEADER ==================== */}
       <header className="bg-[var(--green)] text-[var(--white)] w-full shadow-lg fixed top-0 left-0 z-50">
         <div className="w-full px-6 lg:px-12 py-4 flex justify-between items-center">
           <h1 className="text-3xl font-bold tracking-wide">
             Animal Disease Traceability
           </h1>
           <nav className="flex space-x-6 text-lg">
-            <a
-              href="/"
-              className="hover:text-[var(--light-green)] transition-all duration-200"
-            >
+            <a href="/" className="hover:text-[var(--light-green)] transition-all duration-200">
               Home
             </a>
-            <a
-              href="/dashboard"
-              className="hover:text-[var(--light-green)] transition-all duration-200"
-            >
+            <a href="/dashboard" className="hover:text-[var(--light-green)] transition-all duration-200">
               Dashboards
             </a>
-            <a
-              href="/login"
-              className="hover:text-[var(--light-green)] transition-all duration-200"
-            >
+            <a href="/login" className="hover:text-[var(--light-green)] transition-all duration-200">
               Login
             </a>
           </nav>
@@ -71,6 +65,7 @@ const AdminLogin = () => {
               />
             </div>
 
+            {/* Login Button */}
             <button
               type="submit"
               className="w-full bg-[var(--green)] text-white py-3 rounded-xl hover:bg-[var(--light-green)] hover:text-[var(--green)] transition font-medium shadow-md"
@@ -78,10 +73,18 @@ const AdminLogin = () => {
               Login as Admin
             </button>
           </form>
+
+          {/* BACK BUTTON – BELOW LOGIN */}
+          <button
+            onClick={handleBack}
+            className="w-full mt-4 bg-gray-600 text-white py-3 rounded-xl hover:bg-gray-700 transition font-medium shadow-md"
+          >
+            Back to Home
+          </button>
         </div>
       </main>
 
-      {/* ==================== FOOTER (copied from PublicLayout) ==================== */}
+      {/* ==================== FOOTER ==================== */}
       <footer className="bg-[var(--green)] text-[var(--white)] text-center py-6 w-full mt-auto">
         <p className="text-sm">
           © 2025 Santa Rosa City Laguna Animal Disease Traceability. All

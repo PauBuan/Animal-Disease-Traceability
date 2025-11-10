@@ -76,6 +76,24 @@ export default function AdminLayout() {
             <UsersIcon />
             <span className="ml-3">User Management</span>
           </Link>
+          <Link
+            to="/admin/animal-db"
+            className={`${linkBaseClasses} ${
+              isActive("/admin/animal-db") ? linkActiveClasses : linkInactiveClasses
+            }`}
+          >
+            <span className="ml-1">🗂️</span>
+            <span className="ml-3">Animal Database</span>
+          </Link>
+         <Link
+            to="/admin/transactions"
+            className={`${linkBaseClasses} ${
+              isActive("/admin/transactions") ? linkActiveClasses : linkInactiveClasses
+            }`}
+          >
+            <span className="ml-1">📝</span>
+            <span className="ml-3">Transaction History</span>
+          </Link>
         </nav>
         <div className="p-4 border-t-2 border-green-700">
           <button

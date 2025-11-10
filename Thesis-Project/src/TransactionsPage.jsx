@@ -1,218 +1,253 @@
-import { useState, useEffect } from 'react';
+// src/pages/TransactionsPage.jsx
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-
+// Mock data with new fields
+const MOCK_TRANSACTIONS = [
+  {
+    username: "Epoy@farm.ph",
+    animalID: "A001",
+    species: "Hog",
+    location: "Brgy. Dita",
+    healthStatus: "Healthy",
+    timestamp: new Date().toISOString(),
+  },
+  {
+    username: "Junnie@farm.ph",
+    animalID: "C123",
+    species: "Cattle",
+    location: "Brgy. Pooc",
+    healthStatus: "Sick",
+    timestamp: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+  },
+  {
+    username: "Lebron@farm.ph",
+    animalID: "CH456",
+    species: "Chicken",
+    location: "Brgy. Macabling",
+    healthStatus: "Healthy",
+    timestamp: new Date(Date.now() - 2 * 86400000).toISOString(), // 2 days ago
+  },
+  {
+    username: "Charlie@farm.ph",
+    animalID: "A789",
+    species: "Hog",
+    location: "Brgy. Dita",
+    healthStatus: "Quarantined",
+    timestamp: new Date(Date.now() - 3 * 86400000).toISOString(), // 3 days ago
+  },
+  {
+    username: "Susan@farm.ph",
+    animalID: "CAR001",
+    species: "Carabao",
+    location: "Brgy. Pooc",
+    healthStatus: "Healthy",
+    timestamp: new Date(Date.now() - 4 * 86400000).toISOString(), // 4 days ago
+  },
+];
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [formData, setFormData] = useState({
-    animalID: '',
-    species: '',
-    healthStatus: '',
-  });
-  const [submitMessage, setSubmitMessage] = useState('');
   const navigate = useNavigate();
 
-  
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [formData, setFormData] = useState({
+    username: "",
+    animalID: "",
+    species: "",
+    location: "",
+    healthStatus: "",
+  });
+
+  // Load mock data with delay
   useEffect(() => {
-    fetchTransactions();
+    const timer = setTimeout(() => {
+      setTransactions(MOCK_TRANSACTIONS);
+      setLoading(false);
+    }, 800);
+    return () => clearTimeout(timer);
   }, []);
 
-  const fetchTransactions = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch('/api/transactions');
-      if (!response.ok) throw new Error('Failed to fetch transactions');
-      const data = await response.json();
-      setTransactions(data);
-    } catch (err) {
-      setError(err.message || 'Something went wrong');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e) => {
+  // Mock submit – adds to history
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setSubmitMessage('');
 
-    try {
-      const response = await fetch('/api/transactions/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
+    const newTx = {
+      ...formData,
+      timestamp: new Date().toISOString(),
+    };
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.message || 'Failed to add transaction');
-      }
+    setTransactions((prev) => [newTx, ...prev]);
 
-      const result = await response.json();
-      setSubmitMessage(`Success: Transaction ${result.transactionId || 'added'}!`);
-      setFormData({ animalID: '', species: '', healthStatus: '' });
-      fetchTransactions();
-    } catch (err) {
-      setSubmitMessage(`Error: ${err.message}`);
-    }
+    // Native browser alert instead of toast
+    alert("Transaction added successfully!");
+
+    // Reset form
+    setFormData({
+      username: "",
+      animalID: "",
+      species: "",
+      location: "",
+      healthStatus: "",
+    });
   };
 
-  const handleChange = (e) => {
+  const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  // Format timestamp to readable string (without date-fns)
+  const formatDate = (isoString) => {
+    const date = new Date(isoString);
+    const options = {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    };
+    return date.toLocaleString("en-US", options);
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-emerald-700 mb-8 text-center">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-50 py-12 px-4 sm:px-6 lg:px-12">
+      {/* Header */}
+      <header className="max-w-7xl mx-auto mb-12 text-center">
+        <h1 className="text-4xl sm:text-5xl font-extrabold text-emerald-800">
           Animal Health Transactions
         </h1>
+        <p className="mt-3 text-lg text-emerald-600"></p>
+      </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Add Transaction Form */}
-          <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-200">
-            <h2 className="text-2xl font-bold text-emerald-700 mb-6">Add New Record</h2>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <input
-                type="text"
-                name="animalID"
-                value={formData.animalID}
-                onChange={handleChange}
-                placeholder="Animal ID (e.g., A001)"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
-                required
-              />
-              <input
-                type="text"
-                name="species"
-                value={formData.species}
-                onChange={handleChange}
-                placeholder="Species (e.g., Elephant)"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
-                required
-              />
-              <input
-                type="text"
-                name="healthStatus"
-                value={formData.healthStatus}
-                onChange={handleChange}
-                placeholder="Health Status (e.g., Healthy)"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
-                required
-              />
-              <button
-                type="submit"
-                className="w-full bg-emerald-600 text-white py-3.5 rounded-lg hover:bg-emerald-700 transition font-semibold text-lg shadow-md"
-              >
-                Submit Transaction
-              </button>
-            </form>
+      <div className="max-w-7xl mx-auto grid gap-10 lg:grid-cols-2">
+        {/* Form */}
+        <section className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-emerald-100">
+          <h2 className="text-2xl font-bold text-emerald-700 mb-6">
+            Add New Record
+          </h2>
 
-            {submitMessage && (
-              <p
-                className={`mt-6 text-center font-semibold text-lg ${
-                  submitMessage.includes('Success')
-                    ? 'text-emerald-600'
-                    : 'text-red-600'
-                }`}
-              >
-                {submitMessage}
-              </p>
-            )}
-          </div>
-
-          {/* Transaction History */}
-          <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-200">
-            <h2 className="text-2xl font-bold text-emerald-700 mb-6">Transaction History</h2>
-
-            {loading && (
-              <div className="text-center py-12">
-                <p className="text-gray-600 text-lg animate-pulse">Loading transactions...</p>
-              </div>
-            )}
-
-            {error && (
-              <div className="text-center py-12">
-                <p className="text-red-600 font-semibold text-lg">{error}</p>
-                <button
-                  onClick={fetchTransactions}
-                  className="mt-4 text-emerald-600 underline hover:text-emerald-700 font-medium"
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {[
+              { name: "username", label: "Username (e.g., admin@farm.ph)" },
+              { name: "animalID", label: "Animal ID (e.g., A001)" },
+              { name: "species", label: "Species (e.g., Hog)" },
+              { name: "location", label: "Location (Brgy.) (e.g., Brgy. Dita)" },
+              { name: "healthStatus", label: "Health Status (e.g., Healthy)" },
+            ].map((field) => (
+              <div key={field.name} className="relative">
+                <input
+                  type="text"
+                  name={field.name}
+                  value={formData[field.name]}
+                  onChange={handleChange}
+                  placeholder=" "
+                  required
+                  className="peer w-full px-4 py-3 bg-transparent border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                />
+                <label
+                  className={`absolute left-4 -top-2.5 bg-white px-1 text-sm font-medium text-emerald-600 transition-all duration-200 transform origin-left ${
+                    formData[field.name]
+                      ? "scale-75 -translate-y-4"
+                      : "scale-100 translate-y-3"
+                  } peer-focus:scale-75 peer-focus:-translate-y-4`}
                 >
-                  Retry
-                </button>
+                  {field.label}
+                </label>
               </div>
-            )}
+            ))}
 
-            {!loading && !error && transactions.length === 0 && (
-              <p className="text-center text-gray-500 py-12 text-lg">
-                No transactions recorded yet.
-              </p>
-            )}
+            <button
+              type="submit"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 rounded-lg shadow-md transition transform hover:scale-[1.02] active:scale-[0.98]"
+            >
+              Submit Transaction
+            </button>
+          </form>
+        </section>
 
-            {!loading && !error && transactions.length > 0 && (
-              <div className="overflow-x-auto mt-4">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-emerald-50">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-emerald-800 uppercase tracking-wider">
-                        Tx ID
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-emerald-800 uppercase tracking-wider">
-                        Function
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-emerald-800 uppercase tracking-wider">
-                        Time
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-emerald-800 uppercase tracking-wider">
-                        Initiator
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-emerald-800 uppercase tracking-wider">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {transactions.map((tx, index) => (
-                      <tr
-                        key={tx.id || index}
-                        className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}
+        {/* Transaction History */}
+        <section className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-emerald-100">
+          <h2 className="text-2xl font-bold text-emerald-700 mb-6">
+            Transaction History
+          </h2>
+
+          {loading ? (
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-12 bg-gray-200 rounded animate-pulse"
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-emerald-100">
+                <thead className="bg-emerald-50">
+                  <tr>
+                    {[
+                      "Username",
+                      "Animal ID",
+                      "Species",
+                      "Location (Brgy.)",
+                      "Health Status",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="px-5 py-3 text-left text-xs font-bold text-emerald-800 uppercase tracking-wider"
                       >
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {tx.id || '—'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {tx.function || 'addAnimal'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {tx.timestamp
-                            ? new Date(tx.timestamp).toLocaleString()
-                            : '—'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {tx.initiator || 'Unknown'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                              tx.status === 'Success' || tx.status === 'success'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}
-                          >
-                            {tx.status || 'Pending'}
-                          </span>
-                        </td>
-                      </tr>
+                        {h}
+                      </th>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {transactions.map((tx, idx) => (
+                    <tr
+                      key={idx}
+                      className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
+                    >
+                      <td className="px-5 py-3 text-sm text-gray-900">
+                        {tx.username}
+                      </td>
+                      <td className="px-5 py-3 text-sm text-emerald-700 font-medium">
+                        {tx.animalID}
+                      </td>
+                      <td className="px-5 py-3 text-sm text-gray-900">
+                        {tx.species}
+                      </td>
+                      <td className="px-5 py-3 text-sm text-gray-900">
+                        {tx.location}
+                      </td>
+                      <td className="px-5 py-3">
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                            tx.healthStatus === "Healthy"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : tx.healthStatus === "Sick"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {tx.healthStatus}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Back to Dashboard – YOUR EXACT DESIGN */}
+      <div className="mt-12 text-center">
+        <button
+          onClick={() => navigate("/login")}
+          className="bg-gray-600 text-white px-8 py-3 rounded-xl hover:bg-gray-700 transition font-medium shadow-md"
+        >
+          Log out
+        </button>
       </div>
     </div>
   );

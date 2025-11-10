@@ -21,6 +21,9 @@ import AdminLayout from "./AdminLayout";
 import AdminDashboard from "./AdminDashboard";
 import AdminReports from "./AdminReports";
 import AdminUserManagement from "./AdminUserManagement";
+import AdminAnimalDB from "./AdminAnimalDB";
+import AdminTransaction from "./AdminTransaction";
+
 
 /**
  * PublicLayout Component
@@ -132,6 +135,8 @@ export default function App() {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="reports" element={<AdminReports />} />
           <Route path="user-management" element={<AdminUserManagement />} />
+          <Route path="animal-db" element={<AdminAnimalDB />} />
+          <Route path="transactions" element={<AdminTransaction />} />
         </Route>
       </Routes>
     </Router>
