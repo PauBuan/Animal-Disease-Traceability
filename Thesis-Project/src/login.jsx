@@ -40,7 +40,7 @@ const Login = () => {
           </div>
 
           <button
-            onClick={() => navigate('/transactions')}
+            onClick={() => navigate("/TransactionsPage")}
             type="submit"
             className="w-full bg-[var(--green)] text-white py-3 rounded-xl hover:bg-[var(--light-green)] hover:text-[var(--green)] transition font-medium shadow-md"
           >
