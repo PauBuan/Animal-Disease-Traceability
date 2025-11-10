@@ -94,6 +94,15 @@ export default function AdminLayout() {
             <span className="ml-1">📝</span>
             <span className="ml-3">Transaction History</span>
           </Link>
+          <Link
+            to="/admin/alert"
+            className={`${linkBaseClasses} ${
+              isActive("/admin/alert") ? linkActiveClasses : linkInactiveClasses
+            }`}
+          >
+            <span className="ml-1">🚨</span>
+            <span className="ml-3">Send Alert</span>
+          </Link>
         </nav>
         <div className="p-4 border-t-2 border-green-700">
           <button

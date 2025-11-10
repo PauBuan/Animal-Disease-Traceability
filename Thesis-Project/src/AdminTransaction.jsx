@@ -98,7 +98,7 @@ export default function AdminTransaction() {
                       "Species",
                       "Location (Brgy.)",
                       "Health Status",
-                      "Time",
+                      "Date & Time",
                     ].map((header) => (
                       <th
                         key={header}

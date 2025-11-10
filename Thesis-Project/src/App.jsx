@@ -23,6 +23,7 @@ import AdminReports from "./AdminReports";
 import AdminUserManagement from "./AdminUserManagement";
 import AdminAnimalDB from "./AdminAnimalDB";
 import AdminTransaction from "./AdminTransaction";
+import AdminAlert from "./AdminAlert";
 
 
 /**
@@ -137,6 +138,7 @@ export default function App() {
           <Route path="user-management" element={<AdminUserManagement />} />
           <Route path="animal-db" element={<AdminAnimalDB />} />
           <Route path="transactions" element={<AdminTransaction />} />
+          <Route path="alert" element={<AdminAlert />} />
         </Route>
       </Routes>
     </Router>

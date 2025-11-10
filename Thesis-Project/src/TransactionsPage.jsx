@@ -79,10 +79,8 @@ export default function TransactionsPage() {
 
     setTransactions((prev) => [newTx, ...prev]);
 
-    // Native browser alert instead of toast
     alert("Transaction added successfully!");
 
-    // Reset form
     setFormData({
       username: "",
       animalID: "",
@@ -95,7 +93,7 @@ export default function TransactionsPage() {
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  // Format timestamp to readable string (without date-fns)
+  // Format timestamp to readable string
   const formatDate = (isoString) => {
     const date = new Date(isoString);
     const options = {
@@ -190,6 +188,7 @@ export default function TransactionsPage() {
                       "Species",
                       "Location (Brgy.)",
                       "Health Status",
+                      "Date & Time", // ← NEW HEADER
                     ].map((h) => (
                       <th
                         key={h}
@@ -231,6 +230,10 @@ export default function TransactionsPage() {
                           {tx.healthStatus}
                         </span>
                       </td>
+                      {/* NEW TIME CELL */}
+                      <td className="px-5 py-3 text-xs text-gray-600">
+                        {formatDate(tx.timestamp)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -240,7 +243,7 @@ export default function TransactionsPage() {
         </section>
       </div>
 
-      {/* Back to Dashboard – YOUR EXACT DESIGN */}
+      {/* Back to Dashboard */}
       <div className="mt-12 text-center">
         <button
           onClick={() => navigate("/login")}
