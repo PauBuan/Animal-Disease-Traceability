@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
-import "./App.css"; // Import the CSS file to use the variables
+import "../../assets/styles/App.css";
 
 // Using placeholder icons. You can replace these with an icon library like react-icons.
 const DashboardIcon = () => <span>📊</span>;
@@ -20,7 +20,7 @@ export default function AdminLayout() {
   const handleLogout = () => {
     // In a real app, you'd clear the auth token here
     console.log("Admin logged out");
-    navigate("/AdminLogin");
+    navigate("/adminlogin");
   };
 
   // Helper function to determine if a link is active
@@ -79,16 +79,20 @@ export default function AdminLayout() {
           <Link
             to="/admin/animal-db"
             className={`${linkBaseClasses} ${
-              isActive("/admin/animal-db") ? linkActiveClasses : linkInactiveClasses
+              isActive("/admin/animal-db")
+                ? linkActiveClasses
+                : linkInactiveClasses
             }`}
           >
             <span className="ml-1">🗂️</span>
             <span className="ml-3">Animal Database</span>
           </Link>
-         <Link
+          <Link
             to="/admin/transactions"
             className={`${linkBaseClasses} ${
-              isActive("/admin/transactions") ? linkActiveClasses : linkInactiveClasses
+              isActive("/admin/transactions")
+                ? linkActiveClasses
+                : linkInactiveClasses
             }`}
           >
             <span className="ml-1">📝</span>

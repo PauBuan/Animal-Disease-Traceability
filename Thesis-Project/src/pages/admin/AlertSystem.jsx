@@ -1,4 +1,4 @@
-// src/AdminAlert.jsx
+// src/admin/AdminAlert.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -15,7 +15,9 @@ export default function AdminAlert() {
 
     // Simulate sending alert
     console.log("Alert sent:", description);
-    alert("Alert sent successfully to farmers, stakeholders, and relevant parties!");
+    alert(
+      "Alert sent successfully to farmers, stakeholders, and relevant parties!"
+    );
 
     // Reset form
     setDescription("");
@@ -30,7 +32,11 @@ export default function AdminAlert() {
             Send Alert
           </h1>
           <p className="text-gray-600 text-lg">
-            The alert will be sent to <strong>farmers, stakeholders, local officials, and relevant parties</strong> in Santa Rosa, Laguna.
+            The alert will be sent to{" "}
+            <strong>
+              farmers, stakeholders, local officials, and relevant parties
+            </strong>{" "}
+            in Santa Rosa, Laguna.
           </p>
         </div>
 

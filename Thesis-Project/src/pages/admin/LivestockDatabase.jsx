@@ -1,7 +1,7 @@
 // src/AdminAnimalDB.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { tableData } from "./data"; // assuming data.js is in src/
+import { tableData } from "../../config/data";
 
 function SimpleBlockchainChain({ animalType }) {
   // === ENHANCED MOCK BLOCKCHAIN DATA ===
@@ -158,7 +158,9 @@ function SimpleBlockchainChain({ animalType }) {
   const events = mockEvents[animalType] || [];
 
   if (events.length === 0) {
-    return <p className="text-gray-500 text-center">No blockchain records found.</p>;
+    return (
+      <p className="text-gray-500 text-center">No blockchain records found.</p>
+    );
   }
 
   // Helper: Format ISO → PH Time (GMT+8)
@@ -247,7 +249,9 @@ function SimpleBlockchainChain({ animalType }) {
         <p className="text-sm text-emerald-800 text-center font-medium">
           This animal's full history is permanently recorded on the blockchain.
           <br />
-          <span className="text-xs">Any change would break the hash chain.</span>
+          <span className="text-xs">
+            Any change would break the hash chain.
+          </span>
         </p>
       </div>
     </div>
@@ -269,7 +273,7 @@ export default function AdminAnimalDB() {
   let totalSick = 0;
   let totalQuarantined = 0;
 
-  tableData.forEach(row => {
+  tableData.forEach((row) => {
     totals.dita.healthy += row.dita.healthy;
     totals.dita.sick += row.dita.sick;
     totals.dita.quarantined += row.dita.quarantined;
@@ -283,11 +287,15 @@ export default function AdminAnimalDB() {
     totals.macabling.quarantined += row.macabling.quarantined;
   });
 
-  totalAnimals = Object.values(totals).reduce((sum, b) => 
-    sum + b.healthy + b.sick + b.quarantined, 0
+  totalAnimals = Object.values(totals).reduce(
+    (sum, b) => sum + b.healthy + b.sick + b.quarantined,
+    0
   );
   totalSick = Object.values(totals).reduce((sum, b) => sum + b.sick, 0);
-  totalQuarantined = Object.values(totals).reduce((sum, b) => sum + b.quarantined, 0);
+  totalQuarantined = Object.values(totals).reduce(
+    (sum, b) => sum + b.quarantined,
+    0
+  );
 
   const handleDownload = () => {
     alert("Animal Database Report downloaded!");
@@ -311,7 +319,8 @@ export default function AdminAnimalDB() {
             Animal Database
           </h1>
           <p className="text-gray-600 mt-2">
-            Complete health status of all registered livestock in Santa Rosa City
+            Complete health status of all registered livestock in Santa Rosa
+            City
           </p>
         </div>
 
@@ -321,12 +330,21 @@ export default function AdminAnimalDB() {
             <table className="min-w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white">
-                  <th rowSpan="2" className="p-5 font-bold text-left align-middle w-32">
+                  <th
+                    rowSpan="2"
+                    className="p-5 font-bold text-left align-middle w-32"
+                  >
                     Animal
                   </th>
-                  <th colSpan="3" className="p-5 font-bold text-center">Brgy. Dita</th>
-                  <th colSpan="3" className="p-5 font-bold text-center">Brgy. Pooc</th>
-                  <th colSpan="3" className="p-5 font-bold text-center">Brgy. Macabling</th>
+                  <th colSpan="3" className="p-5 font-bold text-center">
+                    Brgy. Dita
+                  </th>
+                  <th colSpan="3" className="p-5 font-bold text-center">
+                    Brgy. Pooc
+                  </th>
+                  <th colSpan="3" className="p-5 font-bold text-center">
+                    Brgy. Macabling
+                  </th>
                   <th rowSpan="2" className="p-5 font-bold text-center w-28">
                     Blockchain
                   </th>
@@ -334,13 +352,19 @@ export default function AdminAnimalDB() {
                 <tr className="bg-emerald-50 text-gray-800 border-b-2 border-emerald-200">
                   <th className="p-4 text-sm font-medium">Healthy</th>
                   <th className="p-4 text-sm font-medium text-red-600">Sick</th>
-                  <th className="p-4 text-sm font-medium text-orange-600">Quarantined</th>
+                  <th className="p-4 text-sm font-medium text-orange-600">
+                    Quarantined
+                  </th>
                   <th className="p-4 text-sm font-medium">Healthy</th>
                   <th className="p-4 text-sm font-medium text-red-600">Sick</th>
-                  <th className="p-4 text-sm font-medium text-orange-600">Quarantined</th>
+                  <th className="p-4 text-sm font-medium text-orange-600">
+                    Quarantined
+                  </th>
                   <th className="p-4 text-sm font-medium">Healthy</th>
                   <th className="p-4 text-sm font-medium text-red-600">Sick</th>
-                  <th className="p-4 text-sm font-medium text-orange-600">Quarantined</th>
+                  <th className="p-4 text-sm font-medium text-orange-600">
+                    Quarantined
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -351,19 +375,39 @@ export default function AdminAnimalDB() {
                       idx % 2 === 0 ? "bg-white" : "bg-emerald-50"
                     } hover:bg-emerald-100`}
                   >
-                    <td className="p-5 font-medium text-gray-800">{row.animal}</td>
+                    <td className="p-5 font-medium text-gray-800">
+                      {row.animal}
+                    </td>
 
-                    <td className="p-4 text-center text-emerald-700">{row.dita.healthy}</td>
-                    <td className="p-4 text-center text-red-600">{row.dita.sick}</td>
-                    <td className="p-4 text-center text-orange-600">{row.dita.quarantined}</td>
+                    <td className="p-4 text-center text-emerald-700">
+                      {row.dita.healthy}
+                    </td>
+                    <td className="p-4 text-center text-red-600">
+                      {row.dita.sick}
+                    </td>
+                    <td className="p-4 text-center text-orange-600">
+                      {row.dita.quarantined}
+                    </td>
 
-                    <td className="p-4 text-center text-emerald-700">{row.pooc.healthy}</td>
-                    <td className="p-4 text-center text-red-600">{row.pooc.sick}</td>
-                    <td className="p-4 text-center text-orange-600">{row.pooc.quarantined}</td>
+                    <td className="p-4 text-center text-emerald-700">
+                      {row.pooc.healthy}
+                    </td>
+                    <td className="p-4 text-center text-red-600">
+                      {row.pooc.sick}
+                    </td>
+                    <td className="p-4 text-center text-orange-600">
+                      {row.pooc.quarantined}
+                    </td>
 
-                    <td className="p-4 text-center text-emerald-700">{row.macabling.healthy}</td>
-                    <td className="p-4 text-center text-red-600">{row.macabling.sick}</td>
-                    <td className="p-4 text-center text-orange-600">{row.macabling.quarantined}</td>
+                    <td className="p-4 text-center text-emerald-700">
+                      {row.macabling.healthy}
+                    </td>
+                    <td className="p-4 text-center text-red-600">
+                      {row.macabling.sick}
+                    </td>
+                    <td className="p-4 text-center text-orange-600">
+                      {row.macabling.quarantined}
+                    </td>
 
                     {/* BLOCKCHAIN BUTTON */}
                     <td className="p-4 text-center">
@@ -380,15 +424,33 @@ export default function AdminAnimalDB() {
                 {/* TOTAL ROW */}
                 <tr className="bg-gradient-to-r from-emerald-100 to-emerald-50 font-bold text-gray-800 border-t-4 border-emerald-300">
                   <td className="p-5 text-left">TOTAL</td>
-                  <td className="p-4 text-center text-emerald-700">{totals.dita.healthy}</td>
-                  <td className="p-4 text-center text-red-600">{totals.dita.sick}</td>
-                  <td className="p-4 text-center text-orange-600">{totals.dita.quarantined}</td>
-                  <td className="p-4 text-center text-emerald-700">{totals.pooc.healthy}</td>
-                  <td className="p-4 text-center text-red-600">{totals.pooc.sick}</td>
-                  <td className="p-4 text-center text-orange-600">{totals.pooc.quarantined}</td>
-                  <td className="p-4 text-center text-emerald-700">{totals.macabling.healthy}</td>
-                  <td className="p-4 text-center text-red-600">{totals.macabling.sick}</td>
-                  <td className="p-4 text-center text-orange-600">{totals.macabling.quarantined}</td>
+                  <td className="p-4 text-center text-emerald-700">
+                    {totals.dita.healthy}
+                  </td>
+                  <td className="p-4 text-center text-red-600">
+                    {totals.dita.sick}
+                  </td>
+                  <td className="p-4 text-center text-orange-600">
+                    {totals.dita.quarantined}
+                  </td>
+                  <td className="p-4 text-center text-emerald-700">
+                    {totals.pooc.healthy}
+                  </td>
+                  <td className="p-4 text-center text-red-600">
+                    {totals.pooc.sick}
+                  </td>
+                  <td className="p-4 text-center text-orange-600">
+                    {totals.pooc.quarantined}
+                  </td>
+                  <td className="p-4 text-center text-emerald-700">
+                    {totals.macabling.healthy}
+                  </td>
+                  <td className="p-4 text-center text-red-600">
+                    {totals.macabling.sick}
+                  </td>
+                  <td className="p-4 text-center text-orange-600">
+                    {totals.macabling.quarantined}
+                  </td>
                   <td className="p-4"></td>
                 </tr>
               </tbody>
@@ -402,21 +464,37 @@ export default function AdminAnimalDB() {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
               <div className="bg-white p-5 rounded-xl shadow-md border border-emerald-200 text-center">
-                <p className="text-sm font-medium text-gray-700">Total Animals</p>
-                <p className="text-3xl font-bold text-emerald-700 mt-1">{totalAnimals.toLocaleString()}</p>
+                <p className="text-sm font-medium text-gray-700">
+                  Total Animals
+                </p>
+                <p className="text-3xl font-bold text-emerald-700 mt-1">
+                  {totalAnimals.toLocaleString()}
+                </p>
               </div>
               <div className="bg-white p-5 rounded-xl shadow-md border border-red-200 text-center">
                 <p className="text-sm font-medium text-gray-700">Total Sick</p>
-                <p className="text-3xl font-bold text-red-600 mt-1">{totalSick}</p>
+                <p className="text-3xl font-bold text-red-600 mt-1">
+                  {totalSick}
+                </p>
                 <p className="text-xs text-gray-600 mt-1">
-                  {totalAnimals > 0 ? ((totalSick / totalAnimals) * 100).toFixed(2) : 0}% of population
+                  {totalAnimals > 0
+                    ? ((totalSick / totalAnimals) * 100).toFixed(2)
+                    : 0}
+                  % of population
                 </p>
               </div>
               <div className="bg-white p-5 rounded-xl shadow-md border border-orange-200 text-center">
-                <p className="text-sm font-medium text-gray-700">Total Quarantined</p>
-                <p className="text-3xl font-bold text-orange-600 mt-1">{totalQuarantined}</p>
+                <p className="text-sm font-medium text-gray-700">
+                  Total Quarantined
+                </p>
+                <p className="text-3xl font-bold text-orange-600 mt-1">
+                  {totalQuarantined}
+                </p>
                 <p className="text-xs text-gray-600 mt-1">
-                  {totalAnimals > 0 ? ((totalQuarantined / totalAnimals) * 100).toFixed(2) : 0}% of population
+                  {totalAnimals > 0
+                    ? ((totalQuarantined / totalAnimals) * 100).toFixed(2)
+                    : 0}
+                  % of population
                 </p>
               </div>
             </div>
