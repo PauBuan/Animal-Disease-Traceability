@@ -18,7 +18,7 @@ const AdminLogin = () => {
 
     try {
       // 1. Call the Blockchain API
-      const response = await loginUser(username);
+      const response = await loginUser(username, password);
 
       if (response.success) {
         // 2. SECURITY CHECK: Strictly enforce RegulatorMSP
