@@ -24,9 +24,15 @@ const Login = () => {
       if (response.success) {
         console.log("Login successful:", response);
 
-        // 4. Role-Based Redirection based on MSP ID
-        const msp = response.mspId;
+        // Save username & fullName in localStorage
+        localStorage.setItem("username", input.username);
+        localStorage.setItem(
+          "fullName",
+          `${response.user.firstName} ${response.user.lastName}`
+        );
 
+        // Role-Based Redirection based on MSP ID
+        const msp = response.mspId;
         if (msp === "FarmerMSP") {
           navigate("/TransactionsPage");
         } else if (msp === "VetMSP") {
@@ -34,7 +40,6 @@ const Login = () => {
         } else if (msp === "RegulatorMSP") {
           navigate("/admin/dashboard");
         } else {
-          // Fallback
           navigate("/dashboard");
         }
       }

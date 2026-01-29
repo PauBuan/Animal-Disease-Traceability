@@ -1,69 +1,29 @@
-// src/AdminTransaction.jsx
+// src/pages/admin/TransactionLogs.jsx
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { format, subDays } from "date-fns";
-
-/* -------------------------------------------------
-   HARD-CODED MOCK DATA – same as TransactionsPage.jsx
-   ------------------------------------------------- */
-const MOCK_TRANSACTIONS = [
-  {
-    username: "Epoy@farm.ph",
-    animalID: "A001",
-    species: "Hog",
-    location: "Brgy. Dita",
-    healthStatus: "Healthy",
-    timestamp: new Date().toISOString(),
-  },
-  {
-    username: "Junnie@farm.ph",
-    animalID: "C123",
-    species: "Cattle",
-    location: "Brgy. Pooc",
-    healthStatus: "Sick",
-    timestamp: subDays(new Date(), 1).toISOString(),
-  },
-  {
-    username: "Lebron@farm.ph",
-    animalID: "CH456",
-    species: "Chicken",
-    location: "Brgy. Macabling",
-    healthStatus: "Healthy",
-    timestamp: subDays(new Date(), 2).toISOString(),
-  },
-  {
-    username: "Charlie@farm.ph",
-    animalID: "A789",
-    species: "Hog",
-    location: "Brgy. Dita",
-    healthStatus: "Quarantined",
-    timestamp: subDays(new Date(), 3).toISOString(),
-  },
-  {
-    username: "Susan@farm.ph",
-    animalID: "CAR001",
-    species: "Carabao",
-    location: "Brgy. Pooc",
-    healthStatus: "Healthy",
-    timestamp: subDays(new Date(), 4).toISOString(),
-  },
-];
+import { format } from "date-fns";
 
 export default function AdminTransaction() {
-  const navigate = useNavigate();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setTransactions(MOCK_TRANSACTIONS);
-      setLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
+    fetchTransactions();
   }, []);
 
+  const fetchTransactions = async () => {
+    try {
+      const res = await fetch("http://localhost:3001/api/transactions");
+      const data = await res.json();
+      setTransactions(data);
+    } catch (err) {
+      console.error("Failed to fetch transactions:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDownload = () => {
-    alert("Transaction data downloaded! (CSV export coming soon)");
+    alert("CSV export coming soon 👀");
   };
 
   return (
@@ -75,11 +35,11 @@ export default function AdminTransaction() {
             Transaction History
           </h1>
           <p className="text-gray-600 mt-2">
-            All animal health records submitted by users
+            All animal disease reports submitted by users
           </p>
         </div>
 
-        {/* Table Card */}
+        {/* Table */}
         <div className="bg-white rounded-2xl shadow-xl border border-emerald-100 overflow-hidden">
           {loading ? (
             <div className="p-8 space-y-3">
@@ -87,16 +47,21 @@ export default function AdminTransaction() {
                 <div key={i} className="h-12 bg-gray-200 rounded animate-pulse" />
               ))}
             </div>
+          ) : transactions.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">No records found</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-emerald-100">
                 <thead className="bg-emerald-50">
                   <tr>
                     {[
+                      "Status",
                       "Username",
-                      "Animal ID",
+                      "Full Name",
+                      "Contact No.",
                       "Species",
-                      "Location (Brgy.)",
+                      "Quantity",
+                      "Location",
                       "Health Status",
                       "Date & Time",
                     ].map((header) => (
@@ -109,30 +74,38 @@ export default function AdminTransaction() {
                     ))}
                   </tr>
                 </thead>
+
                 <tbody className="divide-y divide-gray-200">
                   {transactions.map((tx, idx) => (
                     <tr
-                      key={idx}
+                      key={tx._id}
                       className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
                     >
-                      <td className="px-5 py-3 text-sm text-gray-900 text-center">
-                        {tx.username}
-                      </td>
-                      <td className="px-5 py-3 text-sm text-emerald-700 font-medium text-center">
-                        {tx.animalID}
-                      </td>
-                      <td className="px-5 py-3 text-sm text-gray-900 text-center">
-                        {tx.species}
-                      </td>
-                      <td className="px-5 py-3 text-sm text-gray-900 text-center">
-                        {tx.location}
-                      </td>
+                      {/* STATUS */}
                       <td className="px-5 py-3 text-center">
                         <span
                           className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                            tx.healthStatus === "Healthy"
+                            tx.status === "On Going"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-emerald-100 text-emerald-800"
+                          }`}
+                        >
+                          {tx.status || "On Going"}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-3 text-sm text-center">{tx.username}</td>
+                      <td className="px-5 py-3 text-sm text-center">{tx.fullName}</td>
+                      <td className="px-5 py-3 text-sm text-center">{tx.contactNumber}</td>
+                      <td className="px-5 py-3 text-sm text-center">{tx.species}</td>
+                      <td className="px-5 py-3 text-sm text-center">{tx.quantity}</td>
+                      <td className="px-5 py-3 text-sm text-center">{tx.location}</td>
+                      <td className="px-5 py-3 text-center">
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                            tx.healthStatus.toLowerCase().includes("healthy")
                               ? "bg-emerald-100 text-emerald-800"
-                              : tx.healthStatus === "Sick"
+                              : tx.healthStatus.toLowerCase().includes("sick")
                               ? "bg-red-100 text-red-800"
                               : "bg-yellow-100 text-yellow-800"
                           }`}
@@ -140,8 +113,8 @@ export default function AdminTransaction() {
                           {tx.healthStatus}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-xs text-gray-600 text-center">
-                        {format(new Date(tx.timestamp), "PPp")}
+                      <td className="px-5 py-3 text-xs text-center text-gray-600">
+                        {tx.timestamp ? format(new Date(tx.timestamp), "PPp") : "N/A"}
                       </td>
                     </tr>
                   ))}

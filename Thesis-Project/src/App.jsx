@@ -32,6 +32,8 @@ import AlertSystem from "./pages/admin/AlertSystem";
 
 import VetLayout from "./components/layout/VetLayout";
 import VetOverview from "./pages/vet/VetOverview";
+import VetTransactionLogs from "./pages/vet/VetTransactionLogs";
+
 
 /**
  * PublicLayout Component
@@ -118,6 +120,11 @@ export default function App() {
               </div>
             }
           />
+          <Route
+            path="transactions"
+            element={<VetTransactionLogs />}
+          />
+          
           <Route
             path="disease-reporting"
             element={

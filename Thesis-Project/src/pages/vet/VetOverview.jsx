@@ -1,6 +1,9 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function VetOverview() {
+  const navigate = useNavigate();
+
   return (
     <div className="max-w-4xl mx-auto">
       <h2 className="text-3xl font-bold text-gray-800 mb-6">
@@ -8,7 +11,6 @@ export default function VetOverview() {
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Quick Action: Log Vaccination */}
         <div className="bg-white p-6 rounded-2xl shadow-md border-l-4 border-green-500">
           <h3 className="text-xl font-bold mb-2">Health Management</h3>
           <p className="text-gray-600 mb-4">
@@ -19,7 +21,6 @@ export default function VetOverview() {
           </button>
         </div>
 
-        {/* Quick Action: Report Outbreak */}
         <div className="bg-white p-6 rounded-2xl shadow-md border-l-4 border-red-500">
           <h3 className="text-xl font-bold mb-2">Emergency Response</h3>
           <p className="text-gray-600 mb-4">
@@ -29,6 +30,16 @@ export default function VetOverview() {
             Report Outbreak
           </button>
         </div>
+      </div>
+
+      {/* Redirect button */}
+      <div className="mt-10 text-center">
+        <button
+          onClick={() => navigate("/vet/transactions")}
+          className="bg-emerald-600 text-white px-8 py-3 rounded-xl hover:bg-emerald-700 transition font-medium shadow-md"
+        >
+          View Disease Reports
+        </button>
       </div>
     </div>
   );

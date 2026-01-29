@@ -1,119 +1,119 @@
-// src/pages/TransactionsPage.jsx
+// src/pages/public/PublicLedger.jsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-// Mock data with new fields
-const MOCK_TRANSACTIONS = [
-  {
-    username: "Epoy@farm.ph",
-    animalID: "A001",
-    species: "Hog",
-    location: "Brgy. Dita",
-    healthStatus: "Healthy",
-    timestamp: new Date().toISOString(),
-  },
-  {
-    username: "Junnie@farm.ph",
-    animalID: "C123",
-    species: "Cattle",
-    location: "Brgy. Pooc",
-    healthStatus: "Sick",
-    timestamp: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-  },
-  {
-    username: "Lebron@farm.ph",
-    animalID: "CH456",
-    species: "Chicken",
-    location: "Brgy. Macabling",
-    healthStatus: "Healthy",
-    timestamp: new Date(Date.now() - 2 * 86400000).toISOString(), // 2 days ago
-  },
-  {
-    username: "Charlie@farm.ph",
-    animalID: "A789",
-    species: "Hog",
-    location: "Brgy. Dita",
-    healthStatus: "Quarantined",
-    timestamp: new Date(Date.now() - 3 * 86400000).toISOString(), // 3 days ago
-  },
-  {
-    username: "Susan@farm.ph",
-    animalID: "CAR001",
-    species: "Carabao",
-    location: "Brgy. Pooc",
-    healthStatus: "Healthy",
-    timestamp: new Date(Date.now() - 4 * 86400000).toISOString(), // 4 days ago
-  },
-];
-
-export default function TransactionsPage() {
+export default function PublicLedger() {
   const navigate = useNavigate();
 
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [username, setUsername] = useState("");
   const [formData, setFormData] = useState({
-    username: "",
-    animalID: "",
+    
+    fullName: "",
+    contactNumber: "",
     species: "",
-    location: "",
+    quantity: "",
     healthStatus: "",
+    location: "",
   });
 
-  // Load mock data with delay
+  // Fetch transactions on page load
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setTransactions(MOCK_TRANSACTIONS);
-      setLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, []);
+    const fetchTransactions = async () => {
+      try {
+        const loggedInUser = localStorage.getItem("username");
+        if (!loggedInUser) return;
 
-  // Mock submit – adds to history
-  const handleSubmit = (e) => {
-    e.preventDefault();
+        setUsername(loggedInUser);
 
-    const newTx = {
-      ...formData,
-      timestamp: new Date().toISOString(),
+        const res = await fetch(`http://localhost:3001/api/transactions/${loggedInUser}`);
+        const data = await res.json();
+        setTransactions(data || []);
+      } catch (err) {
+        console.error("Error fetching transactions:", err);
+        setTransactions([]);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    setTransactions((prev) => [newTx, ...prev]);
+    // Prefill fullName & contactNumber
+    const fullName = localStorage.getItem("fullName") || "";
+    const contactNumber = localStorage.getItem("contactNumber") || "";
 
-    alert("Transaction added successfully!");
+    setFormData((prev) => ({
+      ...prev,
+      fullName,
+      contactNumber,
+    }));
 
-    setFormData({
-      username: "",
-      animalID: "",
-      species: "",
-      location: "",
-      healthStatus: "",
-    });
-  };
+    fetchTransactions();
+  }, []);
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  // Format timestamp to readable string
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!username) return alert("No user logged in");
+
+    const newTx = {
+      status: "On Going",
+      username,
+      ...formData,
+      quantity: Number(formData.quantity),
+      timestamp: new Date().toISOString(),
+      blockchainTxId: null,
+    };
+
+    try {
+      const response = await fetch("http://localhost:3001/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newTx),
+      });
+      if (!response.ok) throw new Error("Failed to save transaction");
+
+      const savedTx = await response.json(); // Make sure backend returns transaction directly
+      setTransactions((prev) => [savedTx, ...prev]);
+      alert("Record added successfully!");
+
+      setFormData({
+        fullName: formData.fullName,
+        contactNumber: formData.contactNumber,
+        species: "",
+        quantity: "",
+        healthStatus: "",
+        location: "",
+      });
+    } catch (err) {
+      alert("Error adding transaction: " + err.message);
+    }
+  };
+
   const formatDate = (isoString) => {
+    if (!isoString) return "N/A";
     const date = new Date(isoString);
-    const options = {
+    if (isNaN(date.getTime())) return "N/A";
+    return date.toLocaleString("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    };
-    return date.toLocaleString("en-US", options);
+    });
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-50 py-12 px-4 sm:px-6 lg:px-12">
-      {/* Header */}
       <header className="max-w-7xl mx-auto mb-12 text-center">
         <h1 className="text-4xl sm:text-5xl font-extrabold text-emerald-800">
-          Animal Health Transactions
+          Animal Health Records
         </h1>
-        <p className="mt-3 text-lg text-emerald-600"></p>
+        <p className="mt-3 text-lg text-emerald-600">
+          Livestock monitoring and health documentation
+        </p>
       </header>
 
       <div className="max-w-7xl mx-auto grid gap-10 lg:grid-cols-2">
@@ -125,27 +125,50 @@ export default function TransactionsPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {[
-              { name: "username", label: "Username (e.g., admin@farm.ph)" },
-              { name: "animalID", label: "Animal ID (e.g., A001)" },
-              { name: "species", label: "Species (e.g., Hog)" },
-              { name: "location", label: "Location (Brgy.) (e.g., Brgy. Dita)" },
-              { name: "healthStatus", label: "Health Status (e.g., Healthy)" },
+              { name: "fullName", label: "Full Name", type: "text" },
+              { name: "contactNumber", label: "Contact Number", type: "text" },
+              { name: "species", label: "Species", type: "text" },
+              { name: "quantity", label: "Quantity", type: "number" },
+              {
+                name: "healthStatus",
+                label: "Health Status (Detailed Description)",
+                type: "textarea",
+              },
+              { name: "location", label: "Location", type: "text" },
             ].map((field) => (
               <div key={field.name} className="relative">
-                <input
-                  type="text"
-                  name={field.name}
-                  value={formData[field.name]}
-                  onChange={handleChange}
-                  placeholder=" "
-                  required
-                  className="peer w-full px-4 py-3 bg-transparent border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
-                />
+                {field.type === "textarea" ? (
+                  <textarea
+                    name={field.name}
+                    value={formData[field.name]}
+                    onChange={handleChange}
+                    placeholder=" "
+                    rows={4}
+                    required
+                    className="peer w-full px-4 py-3 bg-transparent border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition resize-none"
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    name={field.name}
+                    value={formData[field.name]}
+                    onChange={handleChange}
+                    placeholder=" "
+                    required
+                    maxLength={field.name === "contactNumber" ? 11 : undefined}
+                    pattern={field.name === "contactNumber" ? "\\d{11}" : undefined}
+                    title={
+                      field.name === "contactNumber"
+                        ? "Must be exactly 11 digits"
+                        : undefined
+                    }
+                    className="peer w-full px-4 py-3 bg-transparent border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                  />
+                )}
+
                 <label
-                  className={`absolute left-4 -top-2.5 bg-white px-1 text-sm font-medium text-emerald-600 transition-all duration-200 transform origin-left ${
-                    formData[field.name]
-                      ? "scale-75 -translate-y-4"
-                      : "scale-100 translate-y-3"
+                  className={`absolute left-4 -top-2.5 bg-white px-1 text-sm font-medium text-emerald-600 transition-all ${
+                    formData[field.name] ? "scale-75 -translate-y-4" : "scale-100 translate-y-3"
                   } peer-focus:scale-75 peer-focus:-translate-y-4`}
                 >
                   {field.label}
@@ -155,9 +178,9 @@ export default function TransactionsPage() {
 
             <button
               type="submit"
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 rounded-lg shadow-md transition transform hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 rounded-lg shadow-md transition"
             >
-              Submit Transaction
+              Save Record
             </button>
           </form>
         </section>
@@ -165,73 +188,74 @@ export default function TransactionsPage() {
         {/* Transaction History */}
         <section className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-emerald-100">
           <h2 className="text-2xl font-bold text-emerald-700 mb-6">
-            Transaction History
+            Record History
           </h2>
 
           {loading ? (
             <div className="space-y-3">
               {[...Array(5)].map((_, i) => (
-                <div
-                  key={i}
-                  className="h-12 bg-gray-200 rounded animate-pulse"
-                />
+                <div key={i} className="h-12 bg-gray-200 rounded animate-pulse" />
               ))}
             </div>
+          ) : transactions.length === 0 ? (
+            <p className="text-center text-gray-500">No records found</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-emerald-100">
+              <table className="min-w-max w-full divide-y divide-emerald-100">
                 <thead className="bg-emerald-50">
                   <tr>
                     {[
-                      "Username",
-                      "Animal ID",
+                      "Status",
+                      "Full Name",
                       "Species",
-                      "Location (Brgy.)",
-                      "Health Status",
-                      "Date & Time", // ← NEW HEADER
+                      "Quantity",
+                      "Location",
+                      "Health Status (Description)",
+                      "Date & Time",
                     ].map((h) => (
                       <th
                         key={h}
-                        className="px-5 py-3 text-left text-xs font-bold text-emerald-800 uppercase tracking-wider"
+                        className="px-5 py-3 text-left text-xs font-bold text-emerald-800 uppercase tracking-wider whitespace-nowrap"
                       >
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
+
                 <tbody className="divide-y divide-gray-200">
                   {transactions.map((tx, idx) => (
                     <tr
                       key={idx}
                       className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
                     >
-                      <td className="px-5 py-3 text-sm text-gray-900">
-                        {tx.username}
-                      </td>
-                      <td className="px-5 py-3 text-sm text-emerald-700 font-medium">
-                        {tx.animalID}
-                      </td>
-                      <td className="px-5 py-3 text-sm text-gray-900">
-                        {tx.species}
-                      </td>
-                      <td className="px-5 py-3 text-sm text-gray-900">
-                        {tx.location}
-                      </td>
-                      <td className="px-5 py-3">
+                      <td className="px-5 py-3 text-center">
                         <span
                           className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                            tx.healthStatus === "Healthy"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : tx.healthStatus === "Sick"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-yellow-100 text-yellow-800"
+                            tx.status === "On Going"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-emerald-100 text-emerald-800"
                           }`}
                         >
-                          {tx.healthStatus}
+                          {tx.status || "On Going"}
                         </span>
                       </td>
-                      {/* NEW TIME CELL */}
-                      <td className="px-5 py-3 text-xs text-gray-600">
+                      <td className="px-5 py-3 text-sm whitespace-nowrap">
+                        {tx.fullName}
+                      </td>
+                      <td className="px-5 py-3 text-sm whitespace-nowrap">
+                        {tx.species}
+                      </td>
+                      <td className="px-5 py-3 text-sm font-medium text-emerald-700 whitespace-nowrap">
+                        {tx.quantity}
+                      </td>
+                      <td className="px-5 py-3 text-sm whitespace-nowrap">
+                        {tx.location}
+                      </td>
+                      <td className="px-5 py-3 text-sm text-gray-700 whitespace-nowrap">
+                        {tx.healthStatus}
+                      </td>
+                      <td className="px-5 py-3 text-xs text-gray-600 whitespace-nowrap">
                         {formatDate(tx.timestamp)}
                       </td>
                     </tr>
@@ -243,7 +267,6 @@ export default function TransactionsPage() {
         </section>
       </div>
 
-      {/* Back to Dashboard */}
       <div className="mt-12 text-center">
         <button
           onClick={() => navigate("/login")}
