@@ -1,6 +1,5 @@
 // src/pages/vet/VetTransactionLogs.jsx
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
 
 export default function VetTransactionLogs() {
   const [transactions, setTransactions] = useState([]);
@@ -9,6 +8,7 @@ export default function VetTransactionLogs() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentTx, setCurrentTx] = useState(null);
   const [diagnosis, setDiagnosis] = useState("");
+  const [severity, setSeverity] = useState("Ongoing");
 
   useEffect(() => {
     fetchTransactions();
@@ -29,6 +29,7 @@ export default function VetTransactionLogs() {
   const handleOpenModal = (tx) => {
     setCurrentTx(tx);
     setDiagnosis("");
+    setSeverity("Ongoing");
     setModalOpen(true);
   };
 
@@ -36,6 +37,7 @@ export default function VetTransactionLogs() {
     setModalOpen(false);
     setCurrentTx(null);
     setDiagnosis("");
+    setSeverity("Ongoing");
   };
 
   const handleSubmitDiagnosis = async () => {
@@ -50,6 +52,7 @@ export default function VetTransactionLogs() {
           body: JSON.stringify({
             status: "Submitted to Admin",
             diagnosedDisease: diagnosis,
+            severity: severity,
           }),
         }
       );
@@ -58,13 +61,12 @@ export default function VetTransactionLogs() {
 
       const updatedTx = await res.json();
 
-      // Update the transaction list locally
       setTransactions((prev) =>
         prev.map((tx) => (tx._id === updatedTx._id ? updatedTx : tx))
       );
 
       handleCloseModal();
-      alert("Diagnosis submitted to admin successfully!");
+      alert("Diagnosis submitted successfully!");
     } catch (err) {
       alert("Error: " + err.message);
     }
@@ -72,15 +74,7 @@ export default function VetTransactionLogs() {
 
   const formatDate = (isoString) => {
     if (!isoString) return "N/A";
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return "N/A";
-    return date.toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return new Date(isoString).toLocaleString();
   };
 
   return (
@@ -91,11 +85,7 @@ export default function VetTransactionLogs() {
 
       <div className="bg-white rounded-2xl shadow-xl border border-emerald-100 overflow-x-auto">
         {loading ? (
-          <div className="p-8 space-y-3">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-12 bg-gray-200 rounded animate-pulse" />
-            ))}
-          </div>
+          <div className="p-8 text-center">Loading...</div>
         ) : transactions.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             No active disease reports
@@ -105,70 +95,52 @@ export default function VetTransactionLogs() {
             <thead className="bg-emerald-50">
               <tr>
                 {[
-                  "Status",
                   "Username",
                   "Full Name",
+                  "Contact Number", 
                   "Species",
                   "Quantity",
                   "Location",
                   "Health Status",
                   "Diagnosed Disease",
+                  "Severity", 
                   "Date & Time",
                   "Action",
                 ].map((h) => (
                   <th
                     key={h}
-                    className="px-5 py-3 text-center text-xs font-bold text-emerald-800 uppercase tracking-wider"
+                    className="px-4 py-3 text-xs font-bold text-center text-emerald-800 uppercase"
                   >
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody>
               {transactions.map((tx, idx) => (
                 <tr
                   key={tx._id}
                   className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
                 >
-                  <td className="px-5 py-3 text-sm text-center">
-                    <span
-                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                        tx.status === "Submitted to Admin"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {tx.status || "Ongoing"}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-sm text-center">{tx.username}</td>
-                  <td className="px-5 py-3 text-sm text-center">{tx.fullName}</td>
-                  <td className="px-5 py-3 text-sm text-center">{tx.species}</td>
-                  <td className="px-5 py-3 text-sm text-center">{tx.quantity}</td>
-                  <td className="px-5 py-3 text-sm text-center">{tx.location}</td>
-                  <td className="px-5 py-3 text-center">
-                    <span
-                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                        tx.healthStatus.toLowerCase().includes("healthy")
-                          ? "bg-emerald-100 text-emerald-800"
-                          : tx.healthStatus.toLowerCase().includes("sick")
-                          ? "bg-red-100 text-red-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {tx.healthStatus}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-sm text-center">
+                  <td className="px-4 py-3 text-center text-sm">{tx.username}</td>
+                  <td className="px-4 py-3 text-center text-sm">{tx.fullName}</td>
+                  <td className="px-4 py-3 text-center text-sm">{tx.contactNumber}</td>
+                  <td className="px-4 py-3 text-center text-sm">{tx.species}</td>
+                  <td className="px-4 py-3 text-center text-sm">{tx.quantity}</td>
+                  <td className="px-4 py-3 text-center text-sm">{tx.location}</td>
+                  <td className="px-4 py-3 text-center text-sm">{tx.healthStatus}</td>
+                  <td className="px-4 py-3 text-center text-sm">
                     {tx.diagnosedDisease || "-"}
                   </td>
-                  <td className="px-5 py-3 text-xs text-gray-600 text-center">
+                  <td className="px-4 py-3 text-center text-sm">
+                    {tx.severity || "Ongoing"}
+                  </td>
+                  <td className="px-4 py-3 text-center text-xs">
                     {formatDate(tx.timestamp)}
                   </td>
-                  <td className="px-5 py-3 text-center">
+                  <td className="px-4 py-3 text-center">
                     {tx.status === "Submitted to Admin" ? (
-                      <span className="text-gray-500 text-sm">Submitted</span>
+                      <span className="text-gray-400 text-sm">Submitted</span>
                     ) : (
                       <button
                         onClick={() => handleOpenModal(tx)}
@@ -185,30 +157,46 @@ export default function VetTransactionLogs() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* MODAL */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">
-              Diagnostic Disease
-            </h2>
+            <h2 className="text-xl font-bold mb-4">Diagnosis</h2>
+
             <textarea
               value={diagnosis}
               onChange={(e) => setDiagnosis(e.target.value)}
-              placeholder="Type diagnosed disease here..."
-              className="w-full border border-gray-300 rounded-lg p-3 mb-4 resize-none"
+              className="w-full border rounded-lg p-3 mb-3"
               rows={4}
+              placeholder="Type diagnosed disease..."
             />
+
+            <label className="block text-sm font-semibold mb-1">
+              Severity Level
+            </label>
+            <select
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg p-2 mb-4"
+            >
+              <option value="Ongoing" disabled>
+                Select severity
+              </option>
+              <option value="safe">Safe</option>
+              <option value="mild">Mild</option>
+              <option value="dangerous">Dangerous</option>
+            </select>
+
             <div className="flex justify-end gap-3">
               <button
                 onClick={handleCloseModal}
-                className="px-4 py-2 rounded-lg bg-gray-300 hover:bg-gray-400"
+                className="px-4 py-2 bg-gray-300 rounded-lg"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmitDiagnosis}
-                className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg"
               >
                 Submit
               </button>

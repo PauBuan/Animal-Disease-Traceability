@@ -1,3 +1,4 @@
+// src/pages/admin/AdminOverview.jsx
 import React, { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -56,8 +57,12 @@ export default function AdminOverview() {
     try {
       const res = await fetch("http://localhost:3001/api/transactions");
       const data = await res.json();
-      // Filter to only show vet-submitted alerts (you can adjust field if needed)
-      const submitted = data.filter((tx) => tx.status === "Submitted to Admin");
+      // Filter to only show mild/dangerous severities submitted to admin
+      const submitted = data.filter(
+        (tx) =>
+          (tx.severity === "mild" || tx.severity === "dangerous") &&
+          tx.status === "Submitted to Admin"
+      );
       setTransactions(submitted);
     } catch (err) {
       console.error("Failed to fetch transactions:", err);
@@ -79,7 +84,7 @@ export default function AdminOverview() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-red-100">
           <h2 className="text-lg font-semibold text-gray-600 mb-2">Active Alerts</h2>
-          <p className="text-4xl font-bold text-red-600">3</p>
+          <p className="text-4xl font-bold text-red-600">{transactions.length}</p>
           <p className="text-gray-500">New outbreaks reported</p>
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-blue-100">

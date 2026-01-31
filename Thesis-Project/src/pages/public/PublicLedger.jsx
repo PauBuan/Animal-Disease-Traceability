@@ -9,7 +9,6 @@ export default function PublicLedger() {
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState("");
   const [formData, setFormData] = useState({
-    
     fullName: "",
     contactNumber: "",
     species: "",
@@ -59,7 +58,8 @@ export default function PublicLedger() {
     if (!username) return alert("No user logged in");
 
     const newTx = {
-      status: "On Going",
+      status: "Submitted to Vet",
+      severity: "Ongoing",
       username,
       ...formData,
       quantity: Number(formData.quantity),
@@ -75,7 +75,7 @@ export default function PublicLedger() {
       });
       if (!response.ok) throw new Error("Failed to save transaction");
 
-      const savedTx = await response.json(); // Make sure backend returns transaction directly
+      const savedTx = await response.json();
       setTransactions((prev) => [savedTx, ...prev]);
       alert("Record added successfully!");
 
@@ -124,17 +124,16 @@ export default function PublicLedger() {
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {[
+            {[ // form fields
               { name: "fullName", label: "Full Name", type: "text" },
               { name: "contactNumber", label: "Contact Number", type: "text" },
-              { name: "species", label: "Species", type: "text" },
+              { name: "species", label: "Species (Ex. Hog, Chicken, etc.)", type: "text" },
               { name: "quantity", label: "Quantity", type: "number" },
               {
                 name: "healthStatus",
                 label: "Health Status (Detailed Description)",
                 type: "textarea",
               },
-              { name: "location", label: "Location", type: "text" },
             ].map((field) => (
               <div key={field.name} className="relative">
                 {field.type === "textarea" ? (
@@ -149,7 +148,7 @@ export default function PublicLedger() {
                   />
                 ) : (
                   <input
-                    type="text"
+                    type={field.type}
                     name={field.name}
                     value={formData[field.name]}
                     onChange={handleChange}
@@ -157,15 +156,10 @@ export default function PublicLedger() {
                     required
                     maxLength={field.name === "contactNumber" ? 11 : undefined}
                     pattern={field.name === "contactNumber" ? "\\d{11}" : undefined}
-                    title={
-                      field.name === "contactNumber"
-                        ? "Must be exactly 11 digits"
-                        : undefined
-                    }
+                    title={field.name === "contactNumber" ? "Must be exactly 11 digits" : undefined}
                     className="peer w-full px-4 py-3 bg-transparent border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
                   />
                 )}
-
                 <label
                   className={`absolute left-4 -top-2.5 bg-white px-1 text-sm font-medium text-emerald-600 transition-all ${
                     formData[field.name] ? "scale-75 -translate-y-4" : "scale-100 translate-y-3"
@@ -175,6 +169,50 @@ export default function PublicLedger() {
                 </label>
               </div>
             ))}
+            <div className="relative">
+              <select
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                required
+                className="peer w-full px-4 py-3 bg-transparent border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+              >
+                <option value="" disabled>
+              
+                </option>
+                {[
+                  "Brgy Aplaya",
+                  "Brgy Balibago",
+                  "Brgy Caingin",
+                  "Brgy Dila",
+                  "Brgy Dita",
+                  "Brgy Don Jose",
+                  "Brgy Ibaba",
+                  "Brgy Kanluran",
+                  "Brgy Labas",
+                  "Brgy Macabling",
+                  "Brgy Malitlit",
+                  "Brgy Malusak",
+                  "Brgy Market Area",
+                  "Brgy Pooc",
+                  "Brgy Pulong Santa Cruz",
+                  "Brgy Santo Domingo",
+                  "Brgy Sinalhan",
+                  "Brgy Tagapo",
+                ].map((brgy) => (
+                  <option key={brgy} value={brgy}>
+                    {brgy}
+                  </option>
+                ))}
+              </select>
+              <label
+                className={`absolute left-4 -top-2.5 bg-white px-1 text-sm font-medium text-emerald-600 transition-all ${
+                  formData.location ? "scale-75 -translate-y-4" : "scale-100 translate-y-3"
+                } peer-focus:scale-75 peer-focus:-translate-y-4`}
+              >
+                Location
+              </label>
+            </div>
 
             <button
               type="submit"
@@ -206,6 +244,7 @@ export default function PublicLedger() {
                   <tr>
                     {[
                       "Status",
+                      "Severity", 
                       "Full Name",
                       "Species",
                       "Quantity",
@@ -232,32 +271,37 @@ export default function PublicLedger() {
                       <td className="px-5 py-3 text-center">
                         <span
                           className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                            tx.status === "On Going"
-                              ? "bg-yellow-100 text-yellow-800"
+                            tx.status === "Submitted to Vet"
+                              ? "bg-gray-100 text-gray-800"
                               : "bg-emerald-100 text-emerald-800"
                           }`}
                         >
-                          {tx.status || "On Going"}
+                          {tx.status || "Submitted to Vet"}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-sm whitespace-nowrap">
-                        {tx.fullName}
+
+                      <td className="px-5 py-3 text-center">
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                            tx.severity === "safe"
+                              ? "bg-green-100 text-green-800"
+                              : tx.severity === "mild"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : tx.severity === "dangerous"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {tx.severity || "Ongoing"} 
+                        </span>
                       </td>
-                      <td className="px-5 py-3 text-sm whitespace-nowrap">
-                        {tx.species}
-                      </td>
-                      <td className="px-5 py-3 text-sm font-medium text-emerald-700 whitespace-nowrap">
-                        {tx.quantity}
-                      </td>
-                      <td className="px-5 py-3 text-sm whitespace-nowrap">
-                        {tx.location}
-                      </td>
-                      <td className="px-5 py-3 text-sm text-gray-700 whitespace-nowrap">
-                        {tx.healthStatus}
-                      </td>
-                      <td className="px-5 py-3 text-xs text-gray-600 whitespace-nowrap">
-                        {formatDate(tx.timestamp)}
-                      </td>
+
+                      <td className="px-5 py-3 text-sm whitespace-nowrap">{tx.fullName}</td>
+                      <td className="px-5 py-3 text-sm whitespace-nowrap">{tx.species}</td>
+                      <td className="px-5 py-3 text-sm font-medium text-emerald-700 whitespace-nowrap">{tx.quantity}</td>
+                      <td className="px-5 py-3 text-sm whitespace-nowrap">{tx.location}</td>
+                      <td className="px-5 py-3 text-sm text-gray-700 whitespace-nowrap">{tx.healthStatus}</td>
+                      <td className="px-5 py-3 text-xs text-gray-600 whitespace-nowrap">{formatDate(tx.timestamp)}</td>
                     </tr>
                   ))}
                 </tbody>

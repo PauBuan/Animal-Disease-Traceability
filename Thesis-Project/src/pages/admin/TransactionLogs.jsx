@@ -55,7 +55,6 @@ export default function AdminTransaction() {
                 <thead className="bg-emerald-50">
                   <tr>
                     {[
-                      "Status",
                       "Username",
                       "Full Name",
                       "Contact No.",
@@ -63,6 +62,8 @@ export default function AdminTransaction() {
                       "Quantity",
                       "Location",
                       "Health Status",
+                      "Diagnosed Disease",
+                      "Severity",
                       "Date & Time",
                     ].map((header) => (
                       <th
@@ -81,38 +82,36 @@ export default function AdminTransaction() {
                       key={tx._id}
                       className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
                     >
-                      {/* STATUS */}
-                      <td className="px-5 py-3 text-center">
-                        <span
-                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                            tx.status === "On Going"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-emerald-100 text-emerald-800"
-                          }`}
-                        >
-                          {tx.status || "On Going"}
-                        </span>
-                      </td>
-
                       <td className="px-5 py-3 text-sm text-center">{tx.username}</td>
                       <td className="px-5 py-3 text-sm text-center">{tx.fullName}</td>
                       <td className="px-5 py-3 text-sm text-center">{tx.contactNumber}</td>
                       <td className="px-5 py-3 text-sm text-center">{tx.species}</td>
                       <td className="px-5 py-3 text-sm text-center">{tx.quantity}</td>
                       <td className="px-5 py-3 text-sm text-center">{tx.location}</td>
-                      <td className="px-5 py-3 text-center">
+                      <td className="px-5 py-3 text-sm text-center">{tx.healthStatus}</td>
+
+                      {/* Diagnosed Disease */}
+                      <td className="px-5 py-3 text-sm text-center">
+                        {tx.diagnosedDisease || "-"}
+                      </td>
+
+                      {/* Severity with colors */}
+                      <td className="px-5 py-3 text-sm text-center">
                         <span
                           className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                            tx.healthStatus.toLowerCase().includes("healthy")
-                              ? "bg-emerald-100 text-emerald-800"
-                              : tx.healthStatus.toLowerCase().includes("sick")
+                            tx.severity === "safe"
+                              ? "bg-green-100 text-green-800"
+                              : tx.severity === "mild"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : tx.severity === "dangerous"
                               ? "bg-red-100 text-red-800"
-                              : "bg-yellow-100 text-yellow-800"
+                              : "bg-gray-100 text-gray-600"
                           }`}
                         >
-                          {tx.healthStatus}
+                          {tx.severity || "Ongoing"}
                         </span>
                       </td>
+
                       <td className="px-5 py-3 text-xs text-center text-gray-600">
                         {tx.timestamp ? format(new Date(tx.timestamp), "PPp") : "N/A"}
                       </td>
