@@ -19,19 +19,25 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // Call the Node.js API
       const response = await loginUser(input.username, input.password);
       if (response.success) {
         console.log("Login successful:", response);
 
-        // Save username & fullName in localStorage
+        // --- CRITICAL FIXES START ---
+        // 1. Save core identifiers
         localStorage.setItem("username", input.username);
+        localStorage.setItem("mspId", response.mspId); // Needed for blockchain auth
+        
+        // 2. Save profile data needed for Transaction validation
         localStorage.setItem(
           "fullName",
           `${response.user.firstName} ${response.user.lastName}`
         );
+        
+        // Ensure your server.js returns this field!
+        localStorage.setItem("contactNumber", response.user.contactNumber || ""); 
+        // --- CRITICAL FIXES END ---
 
-        // Role-Based Redirection based on MSP ID
         const msp = response.mspId;
         if (msp === "FarmerMSP") {
           navigate("/TransactionsPage");
@@ -45,7 +51,6 @@ const Login = () => {
       }
     } catch (err) {
       console.error("Login Error:", err);
-      // Display the error from the backend (e.g., "User not found")
       setError(err.message || "Invalid credentials or connection error.");
     } finally {
       setLoading(false);

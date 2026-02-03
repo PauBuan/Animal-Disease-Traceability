@@ -8,6 +8,13 @@ export default function PublicLedger() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState("");
+  const [mspId, setMspId] = useState("");
+  
+  // Blockchain History States
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
   const [formData, setFormData] = useState({
     fullName: "",
     contactNumber: "",
@@ -17,14 +24,15 @@ export default function PublicLedger() {
     location: "",
   });
 
-  // Fetch transactions on page load
   useEffect(() => {
     const fetchTransactions = async () => {
       try {
         const loggedInUser = localStorage.getItem("username");
+        const userMsp = localStorage.getItem("mspId");
         if (!loggedInUser) return;
 
         setUsername(loggedInUser);
+        setMspId(userMsp);
 
         const res = await fetch(`http://localhost:3001/api/transactions/${loggedInUser}`);
         const data = await res.json();
@@ -37,18 +45,34 @@ export default function PublicLedger() {
       }
     };
 
-    // Prefill fullName & contactNumber
-    const fullName = localStorage.getItem("fullName") || "";
-    const contactNumber = localStorage.getItem("contactNumber") || "";
+    // Prefill and ensure state is updated
+    const storedName = localStorage.getItem("fullName") || "";
+    const storedContact = localStorage.getItem("contactNumber") || "";
 
     setFormData((prev) => ({
       ...prev,
-      fullName,
-      contactNumber,
+      fullName: storedName,
+      contactNumber: storedContact,
     }));
 
     fetchTransactions();
   }, []);
+
+  const viewBlockchainHistory = async (mongoId) => {
+    setHistoryLoading(true);
+    setShowHistoryModal(true);
+    try {
+      const res = await fetch(`http://localhost:3001/api/transactions/history/${mongoId}?username=${username}&mspId=${mspId}`);
+      if (!res.ok) throw new Error("Blockchain data unreachable");
+      const data = await res.json();
+      setHistory(data || []);
+    } catch (err) {
+      console.error("Blockchain Error:", err.message);
+      setHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -57,11 +81,13 @@ export default function PublicLedger() {
     e.preventDefault();
     if (!username) return alert("No user logged in");
 
+    // Construct transaction explicitly to ensure contactNumber is included
     const newTx = {
+      ...formData, // This now includes fullName and contactNumber from state
       status: "Submitted to Vet",
       severity: "Ongoing",
-      username,
-      ...formData,
+      username: username,
+      mspId: localStorage.getItem("mspId"),
       quantity: Number(formData.quantity),
       timestamp: new Date().toISOString(),
       blockchainTxId: null,
@@ -73,20 +99,24 @@ export default function PublicLedger() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newTx),
       });
-      if (!response.ok) throw new Error("Failed to save transaction");
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to save transaction");
+      }
 
       const savedTx = await response.json();
       setTransactions((prev) => [savedTx, ...prev]);
-      alert("Record added successfully!");
+      alert("Record added successfully to Ledger and Blockchain!");
 
-      setFormData({
-        fullName: formData.fullName,
-        contactNumber: formData.contactNumber,
+      // Reset fields but KEEP fullName and contactNumber
+      setFormData((prev) => ({
+        ...prev,
         species: "",
         quantity: "",
         healthStatus: "",
         location: "",
-      });
+      }));
     } catch (err) {
       alert("Error adding transaction: " + err.message);
     }
@@ -95,229 +125,114 @@ export default function PublicLedger() {
   const formatDate = (isoString) => {
     if (!isoString) return "N/A";
     const date = new Date(isoString);
-    if (isNaN(date.getTime())) return "N/A";
-    return date.toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return date.toLocaleString();
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-50 py-12 px-4 sm:px-6 lg:px-12">
       <header className="max-w-7xl mx-auto mb-12 text-center">
-        <h1 className="text-4xl sm:text-5xl font-extrabold text-emerald-800">
-          Animal Health Records
-        </h1>
-        <p className="mt-3 text-lg text-emerald-600">
-          Livestock monitoring and health documentation
-        </p>
+        <h1 className="text-4xl font-extrabold text-emerald-800">Animal Health Records</h1>
+        <p className="mt-3 text-lg text-emerald-600">Secure Traceability Powered by Hyperledger Fabric</p>
       </header>
 
       <div className="max-w-7xl mx-auto grid gap-10 lg:grid-cols-2">
         {/* Form */}
-        <section className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-emerald-100">
-          <h2 className="text-2xl font-bold text-emerald-700 mb-6">
-            Add New Record
-          </h2>
-
+        <section className="bg-white rounded-2xl shadow-xl p-8 border border-emerald-100">
+          <h2 className="text-2xl font-bold text-emerald-700 mb-6">Add New Record</h2>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {[ // form fields
-              { name: "fullName", label: "Full Name", type: "text" },
-              { name: "contactNumber", label: "Contact Number", type: "text" },
-              { name: "species", label: "Species (Ex. Hog, Chicken, etc.)", type: "text" },
-              { name: "quantity", label: "Quantity", type: "number" },
-              {
-                name: "healthStatus",
-                label: "Health Status (Detailed Description)",
-                type: "textarea",
-              },
-            ].map((field) => (
-              <div key={field.name} className="relative">
-                {field.type === "textarea" ? (
-                  <textarea
-                    name={field.name}
-                    value={formData[field.name]}
-                    onChange={handleChange}
-                    placeholder=" "
-                    rows={4}
-                    required
-                    className="peer w-full px-4 py-3 bg-transparent border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition resize-none"
-                  />
-                ) : (
-                  <input
-                    type={field.type}
-                    name={field.name}
-                    value={formData[field.name]}
-                    onChange={handleChange}
-                    placeholder=" "
-                    required
-                    maxLength={field.name === "contactNumber" ? 11 : undefined}
-                    pattern={field.name === "contactNumber" ? "\\d{11}" : undefined}
-                    title={field.name === "contactNumber" ? "Must be exactly 11 digits" : undefined}
-                    className="peer w-full px-4 py-3 bg-transparent border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
-                  />
-                )}
-                <label
-                  className={`absolute left-4 -top-2.5 bg-white px-1 text-sm font-medium text-emerald-600 transition-all ${
-                    formData[field.name] ? "scale-75 -translate-y-4" : "scale-100 translate-y-3"
-                  } peer-focus:scale-75 peer-focus:-translate-y-4`}
-                >
-                  {field.label}
-                </label>
-              </div>
-            ))}
-            <div className="relative">
-              <select
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                required
-                className="peer w-full px-4 py-3 bg-transparent border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
-              >
-                <option value="" disabled>
-              
-                </option>
-                {[
-                  "Brgy Aplaya",
-                  "Brgy Balibago",
-                  "Brgy Caingin",
-                  "Brgy Dila",
-                  "Brgy Dita",
-                  "Brgy Don Jose",
-                  "Brgy Ibaba",
-                  "Brgy Kanluran",
-                  "Brgy Labas",
-                  "Brgy Macabling",
-                  "Brgy Malitlit",
-                  "Brgy Malusak",
-                  "Brgy Market Area",
-                  "Brgy Pooc",
-                  "Brgy Pulong Santa Cruz",
-                  "Brgy Santo Domingo",
-                  "Brgy Sinalhan",
-                  "Brgy Tagapo",
-                ].map((brgy) => (
-                  <option key={brgy} value={brgy}>
-                    {brgy}
-                  </option>
-                ))}
-              </select>
-              <label
-                className={`absolute left-4 -top-2.5 bg-white px-1 text-sm font-medium text-emerald-600 transition-all ${
-                  formData.location ? "scale-75 -translate-y-4" : "scale-100 translate-y-3"
-                } peer-focus:scale-75 peer-focus:-translate-y-4`}
-              >
-                Location
-              </label>
+            <div className="grid grid-cols-2 gap-4">
+              <input name="fullName" value={formData.fullName} readOnly className="px-4 py-3 bg-gray-50 border border-emerald-100 rounded-lg text-gray-500 cursor-not-allowed" placeholder="Full Name" />
+              <input name="contactNumber" value={formData.contactNumber} readOnly className="px-4 py-3 bg-gray-50 border border-emerald-100 rounded-lg text-gray-500 cursor-not-allowed" placeholder="Contact" />
             </div>
+            <input name="species" value={formData.species} onChange={handleChange} placeholder="Species (e.g. Hog, Chicken)" required className="w-full px-4 py-3 border border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-500 transition" />
+            <input type="number" name="quantity" value={formData.quantity} onChange={handleChange} placeholder="Quantity" required className="w-full px-4 py-3 border border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-500 transition" />
+            <textarea name="healthStatus" value={formData.healthStatus} onChange={handleChange} placeholder="Health Condition Description" rows={3} required className="w-full px-4 py-3 border border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-500 transition resize-none" />
+            
+            <select name="location" value={formData.location} onChange={handleChange} required className="w-full px-4 py-3 border border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-500 transition">
+              <option value="" disabled>Select Barangay</option>
+              {["Brgy Aplaya", "Brgy Balibago", "Brgy Caingin", "Brgy Dila", "Brgy Dita", "Brgy Don Jose", "Brgy Ibaba", "Brgy Kanluran", "Brgy Labas", "Brgy Macabling", "Brgy Malitlit", "Brgy Malusak", "Brgy Market Area", "Brgy Pooc", "Brgy Pulong Santa Cruz", "Brgy Santo Domingo", "Brgy Sinalhan", "Brgy Tagapo"].map(brgy => (
+                <option key={brgy} value={brgy}>{brgy}</option>
+              ))}
+            </select>
 
-            <button
-              type="submit"
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 rounded-lg shadow-md transition"
-            >
-              Save Record
+            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 rounded-lg shadow-md transition">
+              Save to Blockchain
             </button>
           </form>
         </section>
 
-        {/* Transaction History */}
-        <section className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-emerald-100">
-          <h2 className="text-2xl font-bold text-emerald-700 mb-6">
-            Record History
-          </h2>
-
-          {loading ? (
-            <div className="space-y-3">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-12 bg-gray-200 rounded animate-pulse" />
-              ))}
-            </div>
-          ) : transactions.length === 0 ? (
-            <p className="text-center text-gray-500">No records found</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-max w-full divide-y divide-emerald-100">
-                <thead className="bg-emerald-50">
-                  <tr>
-                    {[
-                      "Status",
-                      "Severity", 
-                      "Full Name",
-                      "Species",
-                      "Quantity",
-                      "Location",
-                      "Health Status (Description)",
-                      "Date & Time",
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        className="px-5 py-3 text-left text-xs font-bold text-emerald-800 uppercase tracking-wider whitespace-nowrap"
-                      >
-                        {h}
-                      </th>
-                    ))}
+        {/* History Table */}
+        <section className="bg-white rounded-2xl shadow-xl p-8 border border-emerald-100">
+          <h2 className="text-2xl font-bold text-emerald-700 mb-6">Record History</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full divide-y divide-emerald-100">
+              <thead className="bg-emerald-50">
+                <tr className="text-left text-xs font-bold text-emerald-800 uppercase tracking-wider">
+                  <th className="px-4 py-3">Audit</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Species</th>
+                  <th className="px-4 py-3">Location</th>
+                  <th className="px-4 py-3">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 text-sm">
+                {transactions.map((tx) => (
+                  <tr key={tx._id} className="hover:bg-gray-50 transition">
+                    <td className="px-4 py-3">
+                      <button onClick={() => viewBlockchainHistory(tx._id)} className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold hover:bg-emerald-200">Trail</button>
+                    </td>
+                    <td className="px-4 py-3 font-medium text-emerald-600">{tx.status}</td>
+                    <td className="px-4 py-3 text-gray-700">{tx.species}</td>
+                    <td className="px-4 py-3 text-gray-700">{tx.location}</td>
+                    <td className="px-4 py-3 text-gray-400 text-xs">{formatDate(tx.timestamp)}</td>
                   </tr>
-                </thead>
-
-                <tbody className="divide-y divide-gray-200">
-                  {transactions.map((tx, idx) => (
-                    <tr
-                      key={idx}
-                      className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
-                    >
-                      <td className="px-5 py-3 text-center">
-                        <span
-                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                            tx.status === "Submitted to Vet"
-                              ? "bg-gray-100 text-gray-800"
-                              : "bg-emerald-100 text-emerald-800"
-                          }`}
-                        >
-                          {tx.status || "Submitted to Vet"}
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-3 text-center">
-                        <span
-                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                            tx.severity === "safe"
-                              ? "bg-green-100 text-green-800"
-                              : tx.severity === "mild"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : tx.severity === "dangerous"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {tx.severity || "Ongoing"} 
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-3 text-sm whitespace-nowrap">{tx.fullName}</td>
-                      <td className="px-5 py-3 text-sm whitespace-nowrap">{tx.species}</td>
-                      <td className="px-5 py-3 text-sm font-medium text-emerald-700 whitespace-nowrap">{tx.quantity}</td>
-                      <td className="px-5 py-3 text-sm whitespace-nowrap">{tx.location}</td>
-                      <td className="px-5 py-3 text-sm text-gray-700 whitespace-nowrap">{tx.healthStatus}</td>
-                      <td className="px-5 py-3 text-xs text-gray-600 whitespace-nowrap">{formatDate(tx.timestamp)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       </div>
 
+      {/* Adjusted Timeline Item Mapping */}
+{history.length === 0 ? (
+  <p className="text-center text-gray-400 italic">No blockchain records found.</p>
+) : (
+  history.map((item, i) => (
+    <div key={i} className="relative pl-8 border-l-2 border-emerald-500 py-1 pb-6">
+      {/* The Node Dot */}
+      <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-emerald-500 ring-4 ring-emerald-50"></div>
+      
+      {/* Blockchain Proof */}
+      <p className="text-[10px] font-mono text-emerald-500 mb-1 flex items-center gap-1">
+        <span className="bg-emerald-100 px-1 rounded">BLOCKCHAIN PROOF</span>
+        {item.txId.substring(0, 16)}...
+      </p>
+
+      {/* Transaction Content */}
+      <p className="font-bold text-gray-800 leading-none mb-2 text-lg">
+        {item.data.status || "Record Created"}
+      </p>
+
+      <div className="bg-gray-50 p-3 rounded-xl text-xs border border-gray-100 shadow-sm space-y-1">
+        <p><span className="text-gray-400">Origin:</span> {item.data.location}</p>
+        <p><span className="text-gray-400">Species:</span> {item.data.species} ({item.data.quantity} heads)</p>
+        <p><span className="text-gray-400">Health:</span> {item.data.healthStatus}</p>
+        {item.data.diagnosedDisease && (
+          <p className="text-red-600 font-semibold bg-red-50 p-1 rounded">
+            Diagnosis: {item.data.diagnosedDisease}
+          </p>
+        )}
+      </div>
+
+      {/* Timestamp Fix: Pulling from item.data since Go contract includes it there */}
+      <p className="text-[10px] text-gray-400 mt-2">
+        Validated on: {formatDate(item.data.timestamp)}
+      </p>
+    </div>
+  ))
+)}
       <div className="mt-12 text-center">
-        <button
-          onClick={() => navigate("/login")}
-          className="bg-gray-600 text-white px-8 py-3 rounded-xl hover:bg-gray-700 transition font-medium shadow-md"
-        >
-          Log out
-        </button>
+        <button onClick={() => { localStorage.clear(); navigate("/login"); }} className="bg-gray-100 text-gray-600 px-8 py-3 rounded-xl hover:bg-red-50 hover:text-red-600 transition font-bold">Sign Out</button>
       </div>
     </div>
   );
