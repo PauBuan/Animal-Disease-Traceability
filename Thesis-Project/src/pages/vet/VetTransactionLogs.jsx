@@ -43,6 +43,19 @@ export default function VetTransactionLogs() {
   const handleSubmitDiagnosis = async () => {
     if (!diagnosis) return alert("Please type the diagnosed disease.");
 
+    const storedUser = localStorage.getItem("user");
+
+    if (!storedUser) {
+      return alert("Error: You are not logged in.");
+    }
+
+    const currentUser = JSON.parse(storedUser);
+
+    // Safety Check: Ensure this user is actually a Vet
+    if (currentUser.mspId !== "VetMSP") {
+      return alert("Access Denied: You are not a Veterinarian.");
+    }
+
     try {
       const res = await fetch(
         `http://localhost:3001/api/transactions/${currentTx._id}`,
@@ -53,8 +66,10 @@ export default function VetTransactionLogs() {
             status: "Submitted to Admin",
             diagnosedDisease: diagnosis,
             severity: severity,
+            username: currentUser.username || currentUser.email,
+            mspId: currentUser.mspId,
           }),
-        }
+        },
       );
 
       if (!res.ok) throw new Error("Failed to submit diagnosis");
@@ -62,7 +77,7 @@ export default function VetTransactionLogs() {
       const updatedTx = await res.json();
 
       setTransactions((prev) =>
-        prev.map((tx) => (tx._id === updatedTx._id ? updatedTx : tx))
+        prev.map((tx) => (tx._id === updatedTx._id ? updatedTx : tx)),
       );
 
       handleCloseModal();
@@ -97,13 +112,13 @@ export default function VetTransactionLogs() {
                 {[
                   "Username",
                   "Full Name",
-                  "Contact Number", 
+                  "Contact Number",
                   "Species",
                   "Quantity",
                   "Location",
                   "Health Status",
                   "Diagnosed Disease",
-                  "Severity", 
+                  "Severity",
                   "Date & Time",
                   "Action",
                 ].map((h) => (
@@ -122,13 +137,27 @@ export default function VetTransactionLogs() {
                   key={tx._id}
                   className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
                 >
-                  <td className="px-4 py-3 text-center text-sm">{tx.username}</td>
-                  <td className="px-4 py-3 text-center text-sm">{tx.fullName}</td>
-                  <td className="px-4 py-3 text-center text-sm">{tx.contactNumber}</td>
-                  <td className="px-4 py-3 text-center text-sm">{tx.species}</td>
-                  <td className="px-4 py-3 text-center text-sm">{tx.quantity}</td>
-                  <td className="px-4 py-3 text-center text-sm">{tx.location}</td>
-                  <td className="px-4 py-3 text-center text-sm">{tx.healthStatus}</td>
+                  <td className="px-4 py-3 text-center text-sm">
+                    {tx.username}
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm">
+                    {tx.fullName}
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm">
+                    {tx.contactNumber}
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm">
+                    {tx.species}
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm">
+                    {tx.quantity}
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm">
+                    {tx.location}
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm">
+                    {tx.healthStatus}
+                  </td>
                   <td className="px-4 py-3 text-center text-sm">
                     {tx.diagnosedDisease || "-"}
                   </td>

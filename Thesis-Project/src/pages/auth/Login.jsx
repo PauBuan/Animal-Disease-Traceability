@@ -27,16 +27,30 @@ const Login = () => {
         // 1. Save core identifiers
         localStorage.setItem("username", input.username);
         localStorage.setItem("mspId", response.mspId); // Needed for blockchain auth
-        
+
         // 2. Save profile data needed for Transaction validation
         localStorage.setItem(
           "fullName",
-          `${response.user.firstName} ${response.user.lastName}`
+          `${response.user.firstName} ${response.user.lastName}`,
         );
-        
+
         // Ensure your server.js returns this field!
-        localStorage.setItem("contactNumber", response.user.contactNumber || ""); 
+        localStorage.setItem(
+          "contactNumber",
+          response.user.contactNumber || "",
+        );
         // --- CRITICAL FIXES END ---
+        localStorage.setItem("barangay", response.user.barangay || "");
+        // --- 2. ADD NEW OBJECT (For Vet Logic) ---
+
+        const userData = {
+          username: input.username,
+          mspId: response.mspId,
+          fullName: `${response.user.firstName} ${response.user.lastName}`,
+          contactNumber: response.user.contactNumber || "",
+          barangay: response.user.barangay || "",
+        };
+        localStorage.setItem("user", JSON.stringify(userData));
 
         const msp = response.mspId;
         if (msp === "FarmerMSP") {

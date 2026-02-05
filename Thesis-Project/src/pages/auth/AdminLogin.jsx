@@ -25,10 +25,16 @@ const AdminLogin = () => {
         // This prevents Farmers or Vets from accessing the Admin Panel
         if (response.mspId === "RegulatorMSP") {
           console.log("Admin Login Successful");
+          const adminData = {
+            username: username,
+            mspId: response.mspId,
+            role: "Admin",
+          };
+          localStorage.setItem("user", JSON.stringify(adminData));
           navigate("/admin/dashboard");
         } else {
           setError(
-            "Access Denied: Account exists, but is not an Administrator."
+            "Access Denied: Account exists, but is not an Administrator.",
           );
         }
       }

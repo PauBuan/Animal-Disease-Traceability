@@ -11,7 +11,7 @@ import "./assets/styles/App.css";
 
 // --- Public Page Imports (Updated Paths) ---
 import PublicDashboard from "./pages/public/PublicDashboard";
-import Login from "./pages/auth/Login";
+import Login from "./pages/auth/login";
 import MovementMap from "./pages/public/MovementMap";
 import PublicLedger from "./pages/public/PublicLedger";
 import Table from "./components/common/Table";
@@ -33,7 +33,6 @@ import AlertSystem from "./pages/admin/AlertSystem";
 import VetLayout from "./components/layout/VetLayout";
 import VetOverview from "./pages/vet/VetOverview";
 import VetTransactionLogs from "./pages/vet/VetTransactionLogs";
-
 
 /**
  * PublicLayout Component
@@ -120,11 +119,8 @@ export default function App() {
               </div>
             }
           />
-          <Route
-            path="transactions"
-            element={<VetTransactionLogs />}
-          />
-          
+          <Route path="transactions" element={<VetTransactionLogs />} />
+
           <Route
             path="disease-reporting"
             element={
