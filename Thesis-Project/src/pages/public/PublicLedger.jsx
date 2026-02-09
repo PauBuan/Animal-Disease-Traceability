@@ -154,6 +154,12 @@ export default function PublicLedger() {
     return date.toLocaleString();
   };
 
+  const handleLogout = () => {
+    localStorage.clear();
+    console.log("User logged out");
+    navigate("/login");
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-12">
       <header className="max-w-7xl mx-auto mb-12 text-center">
@@ -424,13 +430,10 @@ export default function PublicLedger() {
 
       <div className="mt-12 text-center">
         <button
-          onClick={() => {
-            localStorage.clear();
-            navigate("/login");
-          }}
+          onClick={handleLogout}
           className="bg-white text-slate-400 border border-slate-200 px-8 py-3 rounded-2xl hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all font-bold text-sm"
         >
-          Sign Out
+          🚪 <span className="ml-2">Sign Out</span>
         </button>
       </div>
     </div>

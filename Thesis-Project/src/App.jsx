@@ -11,7 +11,7 @@ import "./assets/styles/App.css";
 
 // --- Public Page Imports (Updated Paths) ---
 import PublicDashboard from "./pages/public/PublicDashboard";
-import Login from "./pages/auth/login";
+import Login from "./pages/auth/Login";
 import MovementMap from "./pages/public/MovementMap";
 import PublicLedger from "./pages/public/PublicLedger";
 import Table from "./components/common/Table";
