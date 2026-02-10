@@ -44,14 +44,10 @@ export default function VetTransactionLogs() {
     if (!diagnosis) return alert("Please type the diagnosed disease.");
 
     const storedUser = localStorage.getItem("user");
-
-    if (!storedUser) {
-      return alert("Error: You are not logged in.");
-    }
+    if (!storedUser) return alert("Error: You are not logged in.");
 
     const currentUser = JSON.parse(storedUser);
 
-    // Safety Check: Ensure this user is actually a Vet
     if (currentUser.mspId !== "VetMSP") {
       return alert("Access Denied: You are not a Veterinarian.");
     }
@@ -69,7 +65,7 @@ export default function VetTransactionLogs() {
             username: currentUser.username || currentUser.email,
             mspId: currentUser.mspId,
           }),
-        },
+        }
       );
 
       if (!res.ok) throw new Error("Failed to submit diagnosis");
@@ -77,7 +73,7 @@ export default function VetTransactionLogs() {
       const updatedTx = await res.json();
 
       setTransactions((prev) =>
-        prev.map((tx) => (tx._id === updatedTx._id ? updatedTx : tx)),
+        prev.map((tx) => (tx._id === updatedTx._id ? updatedTx : tx))
       );
 
       handleCloseModal();
@@ -93,12 +89,13 @@ export default function VetTransactionLogs() {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-full">
+    <div className="p-6 bg-gray-50 min-h-full w-full">
       <h1 className="text-3xl font-bold text-emerald-800 mb-6 text-center">
         Veterinary Transaction Logs
       </h1>
 
-      <div className="bg-white rounded-2xl shadow-xl border border-emerald-100 overflow-x-auto">
+      {/* TABLE CONTAINER (NO HORIZONTAL SCROLL) */}
+      <div className="bg-white rounded-2xl shadow-xl border border-emerald-100 w-full">
         {loading ? (
           <div className="p-8 text-center">Loading...</div>
         ) : transactions.length === 0 ? (
@@ -106,7 +103,7 @@ export default function VetTransactionLogs() {
             No active disease reports
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-emerald-100">
+          <table className="w-full table-fixed divide-y divide-emerald-100">
             <thead className="bg-emerald-50">
               <tr>
                 {[
@@ -124,50 +121,53 @@ export default function VetTransactionLogs() {
                 ].map((h) => (
                   <th
                     key={h}
-                    className="px-4 py-3 text-xs font-bold text-center text-emerald-800 uppercase"
+                    className="px-3 py-3 text-xs font-bold text-center text-emerald-800 uppercase"
                   >
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
+
             <tbody>
               {transactions.map((tx, idx) => (
                 <tr
                   key={tx._id}
                   className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
                 >
-                  <td className="px-4 py-3 text-center text-sm">
+                  <td className="px-3 py-3 text-center text-sm truncate">
                     {tx.username}
                   </td>
-                  <td className="px-4 py-3 text-center text-sm">
+                  <td className="px-3 py-3 text-center text-sm truncate">
                     {tx.fullName}
                   </td>
-                  <td className="px-4 py-3 text-center text-sm">
+                  <td className="px-3 py-3 text-center text-sm">
                     {tx.contactNumber}
                   </td>
-                  <td className="px-4 py-3 text-center text-sm">
+                  <td className="px-3 py-3 text-center text-sm">
                     {tx.species}
                   </td>
-                  <td className="px-4 py-3 text-center text-sm">
+                  <td className="px-3 py-3 text-center text-sm">
                     {tx.quantity}
                   </td>
-                  <td className="px-4 py-3 text-center text-sm">
+                  <td className="px-3 py-3 text-center text-sm truncate">
                     {tx.location}
                   </td>
-                  <td className="px-4 py-3 text-center text-sm">
+                  <td className="px-3 py-3 text-center text-sm">
                     {tx.healthStatus}
                   </td>
-                  <td className="px-4 py-3 text-center text-sm">
+                  <td className="px-3 py-3 text-center text-sm truncate">
                     {tx.diagnosedDisease || "-"}
                   </td>
-                  <td className="px-4 py-3 text-center text-sm">
+                  <td className="px-3 py-3 text-center text-sm">
                     {tx.severity || "Ongoing"}
                   </td>
-                  <td className="px-4 py-3 text-center text-xs">
+                  <td className="px-3 py-3 text-center text-xs">
                     {formatDate(tx.timestamp)}
                   </td>
-                  <td className="px-4 py-3 text-center">
+
+                  {/* ACTION COLUMN (FIXED WIDTH) */}
+                  <td className="px-3 py-3 text-center w-32">
                     {tx.status === "Submitted to Admin" ? (
                       <span className="text-gray-400 text-sm">Submitted</span>
                     ) : (

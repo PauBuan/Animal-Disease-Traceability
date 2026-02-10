@@ -33,6 +33,7 @@ import AlertSystem from "./pages/admin/AlertSystem";
 import VetLayout from "./components/layout/VetLayout";
 import VetOverview from "./pages/vet/VetOverview";
 import VetTransactionLogs from "./pages/vet/VetTransactionLogs";
+import HealthRecord from "./pages/vet/HealthRecord";
 
 /**
  * PublicLayout Component
@@ -110,15 +111,10 @@ export default function App() {
         {/* --- VETERINARIAN ROUTES (R2) --- */}
         <Route path="/vet" element={<VetLayout />}>
           <Route path="dashboard" element={<VetOverview />} />
-          {/* You can add placeholder components for these later */}
-          <Route
-            path="health-records"
-            element={
-              <div className="text-center mt-10">
-                Health Records Module (Coming Soon)
-              </div>
-            }
-          />
+          
+          {/* FIXED: Removed the <div> wrapping the route */}
+          <Route path="health-records" element={<HealthRecord />} />
+          
           <Route path="transactions" element={<VetTransactionLogs />} />
 
           <Route
