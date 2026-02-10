@@ -12,7 +12,7 @@ export default function AdminAnimalDB() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedFarmer, setSelectedFarmer] = useState(null);
-  
+
   // Animal Selection States
   const [showAnimalListModal, setShowAnimalListModal] = useState(false);
   const [farmerAnimals, setFarmerAnimals] = useState([]);
@@ -36,6 +36,7 @@ export default function AdminAnimalDB() {
     fetchAllTransactions();
   }, []);
 
+  // --- UPDATED LOGIC: STRICTER VERIFICATION ---
   const processTransactions = (txList) => {
     // Group transactions by farmer and barangay
     const grouped = {};
@@ -49,28 +50,29 @@ export default function AdminAnimalDB() {
         grouped[key] = {
           farmer,
           barangay,
-          healthy: 0,
-          sick: 0,
+          verifiedHealthy: 0, // Green: Vet confirmed Safe
+          unverified: 0, // Yellow: All Farmer reports (Healthy OR Sick) pending Vet check
+          sick: 0, // Red: ONLY Vet confirmed Sick
           transactions: [],
         };
       }
 
       grouped[key].transactions.push(tx);
 
-      // Count healthy and sick based on status or health description
-      const healthStatus = (tx.healthStatus || "").toLowerCase();
-      const status = (tx.status || "").toLowerCase();
+      // Extract Statuses
+      const severity = (tx.severity || "").toLowerCase(); // From Vet
 
-      if (
-        healthStatus.includes("sick") ||
-        healthStatus.includes("disease") ||
-        healthStatus.includes("ill") ||
-        status.includes("sick") ||
-        tx.diagnosedDisease
-      ) {
+      // 1. CONFIRMED SICK (Strictly Vet Diagnosis: Mild or Dangerous)
+      if (severity === "mild" || severity === "dangerous") {
         grouped[key].sick += tx.quantity || 1;
-      } else {
-        grouped[key].healthy += tx.quantity || 1;
+      }
+      // 2. VERIFIED HEALTHY (Strictly Vet Diagnosis: Safe)
+      else if (severity === "safe") {
+        grouped[key].verifiedHealthy += tx.quantity || 1;
+      }
+      // 3. UNVERIFIED (Everything else falls here)
+      else {
+        grouped[key].unverified += tx.quantity || 1;
       }
     });
 
@@ -80,7 +82,7 @@ export default function AdminAnimalDB() {
   const viewFarmerAnimals = (farmer, barangay) => {
     // Get all transactions for this farmer and barangay
     const animals = transactions.filter(
-      (tx) => tx.fullName === farmer && tx.location === barangay
+      (tx) => tx.fullName === farmer && tx.location === barangay,
     );
     setFarmerAnimals(animals);
     setSelectedFarmer({ farmer, barangay });
@@ -96,25 +98,26 @@ export default function AdminAnimalDB() {
     try {
       if (transaction && transaction._id) {
         // Use regulator credentials for admin access to view all transactions
-        // Fallback order: transaction mspId -> admin's mspId -> 'regulator' (for admin access)
-        let mspId = transaction.mspId || localStorage.getItem('mspId') || 'regulator';
-        let username = transaction.username || localStorage.getItem('username') || '';
-        
+        let mspId =
+          transaction.mspId || localStorage.getItem("mspId") || "regulator";
+        let username =
+          transaction.username || localStorage.getItem("username") || "";
+
         // Ensure mspId is one of the valid connection profiles
-        if (!['farmer', 'vet', 'regulator'].includes(mspId)) {
-          mspId = 'regulator'; // Default to regulator for admin permissions
+        if (!["farmer", "vet", "regulator"].includes(mspId)) {
+          mspId = "regulator";
         }
-        
+
         const url = `http://localhost:3001/api/transactions/history/${transaction._id}?username=${username}&mspId=${mspId}`;
-        
+
         const res = await fetch(url);
-        
+
         if (!res.ok) {
           const errorText = await res.text();
           console.error("API Error Response:", errorText);
           throw new Error("Blockchain data unreachable");
         }
-        
+
         const data = await res.json();
         setHistory(data || []);
       } else {
@@ -152,7 +155,9 @@ export default function AdminAnimalDB() {
       <div className="p-6 bg-gray-50 min-h-full flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-600 font-medium">Loading livestock data...</p>
+          <p className="text-slate-600 font-medium">
+            Loading livestock data...
+          </p>
         </div>
       </div>
     );
@@ -167,27 +172,77 @@ export default function AdminAnimalDB() {
             Livestock Database
           </h1>
           <p className="text-gray-600 mt-2">
-            Complete health status of all registered livestock in Santa Rosa City
+            Complete health status of all registered livestock in Santa Rosa
+            City
           </p>
         </div>
 
-        {/* Table Card */}
+        {/* --- UPDATED SUMMARY STATS (ICONS REMOVED) --- */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-10">
+          {/* CARD 1: VERIFIED HEALTHY */}
+          <div className="bg-white p-6 rounded-xl shadow-md border-l-4 border-emerald-500 text-center">
+            <p className="text-sm font-bold text-gray-600 uppercase tracking-wide">
+              Verified Safe
+            </p>
+            <p className="text-4xl font-black text-emerald-600 mt-2">
+              {farmerData.reduce((sum, d) => sum + d.verifiedHealthy, 0)}
+            </p>
+            <p className="text-xs text-emerald-500 font-medium mt-1">
+              Vet Certified
+            </p>
+          </div>
+
+          {/* CARD 2: UNVERIFIED */}
+          <div className="bg-white p-6 rounded-xl shadow-md border-l-4 border-yellow-400 text-center">
+            <p className="text-sm font-bold text-gray-600 uppercase tracking-wide">
+              Pending Verification
+            </p>
+            <p className="text-4xl font-black text-yellow-600 mt-2">
+              {farmerData.reduce((sum, d) => sum + d.unverified, 0)}
+            </p>
+            <p className="text-xs text-yellow-600 font-medium mt-1">
+              Needs Vet Visit
+            </p>
+          </div>
+
+          {/* CARD 3: SICK / FLAGGED */}
+          <div className="bg-white p-6 rounded-xl shadow-md border-l-4 border-red-500 text-center">
+            <p className="text-sm font-bold text-gray-600 uppercase tracking-wide">
+              Confirmed Sick
+            </p>
+            <p className="text-4xl font-black text-red-600 mt-2">
+              {farmerData.reduce((sum, d) => sum + d.sick, 0)}
+            </p>
+            <p className="text-xs text-red-500 font-medium mt-1">
+              Medical Attention
+            </p>
+          </div>
+        </div>
+
+        {/* --- UPDATED TABLE --- */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden mb-8">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white">
+                <tr className="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white text-sm uppercase tracking-wider">
                   <th className="p-5 font-bold text-left">Farmer</th>
                   <th className="p-5 font-bold text-left">Barangay</th>
-                  <th className="p-5 font-bold text-center">Healthy</th>
-                  <th className="p-5 font-bold text-center">Sick</th>
+                  <th className="p-5 font-bold text-center bg-emerald-800/20">
+                    Verified
+                  </th>
+                  <th className="p-5 font-bold text-center bg-yellow-600/20">
+                    Unverified
+                  </th>
+                  <th className="p-5 font-bold text-center bg-red-800/20">
+                    Sick
+                  </th>
                   <th className="p-5 font-bold text-center">View</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-100">
                 {farmerData.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="p-8 text-center text-gray-500">
+                    <td colSpan="6" className="p-8 text-center text-gray-500">
                       No livestock records found
                     </td>
                   </tr>
@@ -195,28 +250,56 @@ export default function AdminAnimalDB() {
                   farmerData.map((data, idx) => (
                     <tr
                       key={`${data.farmer}-${data.barangay}-${idx}`}
-                      className={`border-b border-gray-200 transition-all ${
-                        idx % 2 === 0 ? "bg-white" : "bg-emerald-50"
-                      } hover:bg-emerald-100`}
+                      className="hover:bg-emerald-50/50 transition-colors"
                     >
                       <td className="p-5 font-medium text-gray-800">
                         {data.farmer}
                       </td>
-                      <td className="p-5 text-gray-700">{data.barangay}</td>
-                      <td className="p-5 text-center text-emerald-700 font-semibold">
-                        {data.healthy}
+                      <td className="p-5 text-gray-600 text-sm font-medium">
+                        {data.barangay}
                       </td>
-                      <td className="p-5 text-center text-red-600 font-semibold">
-                        {data.sick}
+
+                      {/* Verified Column */}
+                      <td className="p-5 text-center">
+                        {data.verifiedHealthy > 0 ? (
+                          <span className="inline-flex items-center justify-center px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold text-sm">
+                            {data.verifiedHealthy}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
                       </td>
+
+                      {/* Unverified Column (Includes Farmer-Reported Sick) */}
+                      <td className="p-5 text-center">
+                        {data.unverified > 0 ? (
+                          <span className="inline-flex items-center justify-center px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full font-bold text-sm">
+                            {data.unverified}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
+                      </td>
+
+                      {/* Sick Column (Vet Confirmed Only) */}
+                      <td className="p-5 text-center">
+                        {data.sick > 0 ? (
+                          <span className="inline-flex items-center justify-center px-3 py-1 bg-red-100 text-red-800 rounded-full font-bold text-sm animate-pulse">
+                            {data.sick}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
+                      </td>
+
                       <td className="p-5 text-center">
                         <button
                           onClick={() =>
                             viewFarmerAnimals(data.farmer, data.barangay)
                           }
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium px-4 py-2 rounded-lg transition shadow"
+                          className="text-emerald-600 hover:text-emerald-800 font-semibold text-sm underline decoration-2 underline-offset-2 transition"
                         >
-                          View Trail
+                          View Details
                         </button>
                       </td>
                     </tr>
@@ -225,48 +308,28 @@ export default function AdminAnimalDB() {
               </tbody>
             </table>
           </div>
-
-          {/* Summary Stats */}
-          <div className="p-8 bg-gradient-to-r from-emerald-50 to-white border-t border-emerald-200">
-            <h3 className="text-2xl font-bold text-emerald-700 mb-6 text-center">
-              Health Summary
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-              <div className="bg-white p-5 rounded-xl shadow-md border border-emerald-200 text-center">
-                <p className="text-sm font-medium text-gray-700">
-                  Total Farmers
-                </p>
-                <p className="text-3xl font-bold text-emerald-700 mt-1">
-                  {farmerData.length}
-                </p>
-              </div>
-              <div className="bg-white p-5 rounded-xl shadow-md border border-emerald-200 text-center">
-                <p className="text-sm font-medium text-gray-700">
-                  Total Healthy Animals
-                </p>
-                <p className="text-3xl font-bold text-emerald-700 mt-1">
-                  {farmerData.reduce((sum, d) => sum + d.healthy, 0)}
-                </p>
-              </div>
-              <div className="bg-white p-5 rounded-xl shadow-md border border-red-200 text-center">
-                <p className="text-sm font-medium text-gray-700">
-                  Total Sick Animals
-                </p>
-                <p className="text-3xl font-bold text-red-600 mt-1">
-                  {farmerData.reduce((sum, d) => sum + d.sick, 0)}
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
 
-        {/* Buttons */}
-        <div className="flex justify-center gap-4">
+        {/* Download Button */}
+        <div className="flex justify-center">
           <button
             onClick={handleDownload}
-            className="bg-emerald-600 text-white px-8 py-3 rounded-xl hover:bg-emerald-700 transition font-medium shadow-md"
+            className="flex items-center gap-2 bg-slate-800 text-white px-6 py-3 rounded-xl hover:bg-slate-900 transition font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
           >
-            Download Database
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+            Download Full Report
           </button>
         </div>
       </div>
@@ -313,7 +376,10 @@ export default function AdminAnimalDB() {
                             {animal.species}
                           </h4>
                           <p className="text-sm text-slate-500 mt-1">
-                            Quantity: <span className="font-bold text-slate-700">{animal.quantity} heads</span>
+                            Quantity:{" "}
+                            <span className="font-bold text-slate-700">
+                              {animal.quantity} heads
+                            </span>
                           </p>
                         </div>
                         <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-bold">
@@ -323,13 +389,17 @@ export default function AdminAnimalDB() {
 
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                          <span className="block text-slate-400 text-xs mb-1">Health Status</span>
+                          <span className="block text-slate-400 text-xs mb-1">
+                            Health Status (Farmer)
+                          </span>
                           <span className="text-slate-800 font-semibold">
                             {animal.healthStatus}
                           </span>
                         </div>
                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                          <span className="block text-slate-400 text-xs mb-1">Location</span>
+                          <span className="block text-slate-400 text-xs mb-1">
+                            Location
+                          </span>
                           <span className="text-slate-800 font-semibold">
                             {animal.location}
                           </span>
@@ -345,10 +415,30 @@ export default function AdminAnimalDB() {
                         </div>
                       )}
 
+                      {/* Show Verified Status in List */}
+                      {animal.severity === "safe" && (
+                        <div className="mt-3 bg-emerald-50 border border-emerald-100 p-3 rounded-lg flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                          <span className="text-xs font-bold text-emerald-600">
+                            VET VERIFIED: Safe
+                          </span>
+                        </div>
+                      )}
+
                       <div className="mt-4 flex items-center justify-end text-emerald-600 text-sm font-semibold group-hover:text-emerald-700">
                         View Blockchain Trail
-                        <svg className="w-5 h-5 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        <svg
+                          className="w-5 h-5 ml-1 group-hover:translate-x-1 transition-transform"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
                         </svg>
                       </div>
                     </div>
@@ -371,7 +461,8 @@ export default function AdminAnimalDB() {
                 </h3>
                 {selectedAnimal && (
                   <p className="text-emerald-500 text-sm font-bold uppercase tracking-tighter">
-                    {selectedAnimal.species} - {selectedAnimal.quantity} heads - {selectedAnimal.location}
+                    {selectedAnimal.species} - {selectedAnimal.quantity} heads -{" "}
+                    {selectedAnimal.location}
                   </p>
                 )}
               </div>

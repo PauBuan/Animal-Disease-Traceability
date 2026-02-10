@@ -29,3 +29,12 @@ export const loginUser = async (username, password) => {
     throw error.response ? error.response.data : { error: "Network Error" };
   }
 };
+
+export const fetchUsers = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/users`);
+    return response.data;
+  } catch (error) {
+    throw error.response ? error.response.data : { error: "Network Error" };
+  }
+};
