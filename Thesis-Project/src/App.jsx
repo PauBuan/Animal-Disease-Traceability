@@ -13,7 +13,7 @@ import "./assets/styles/App.css";
 import PublicDashboard from "./pages/public/PublicDashboard";
 import Login from "./pages/auth/Login";
 import MovementMap from "./pages/public/MovementMap";
-import PublicLedger from "./pages/public/PublicLedger";
+// import PublicLedger from "./pages/public/PublicLedger";
 import Table from "./components/common/Table";
 import OutbreakStats from "./components/charts/OutbreakStats";
 import SummaryReport from "./components/charts/SummaryReport";
@@ -29,12 +29,20 @@ import UserManagement from "./pages/admin/UserManagement";
 import LivestockDatabase from "./pages/admin/LivestockDatabase";
 import TransactionLogs from "./pages/admin/TransactionLogs";
 import AlertSystem from "./pages/admin/AlertSystem";
+import ExitPermits from "./pages/admin/ExitPermits";
+
+// --- Vet Page Imports ---
 
 import VetLayout from "./components/layout/VetLayout";
 import VetOverview from "./pages/vet/VetOverview";
 import VetTransactionLogs from "./pages/vet/VetTransactionLogs";
 import HealthRecord from "./pages/vet/HealthRecord";
+import MovementPermits from "./pages/vet/MovementPermits";
 
+// --- Farmer Page Imports ---
+import FarmerLayout from "./components/layout/FarmerLayout";
+import MyLivestock from "./pages/farmer/MyLivestock"; // Formerly PublicLedger
+import Logistics from "./pages/farmer/Logistics";
 /**
  * PublicLayout Component
  * (Keep this logic inside App.jsx or move to src/components/layout/PublicLayout.jsx later)
@@ -96,7 +104,7 @@ export default function App() {
           <Route path="animal-movement" element={<MovementMap />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
-          <Route path="TransactionsPage" element={<PublicLedger />} />
+          {/* <Route path="TransactionsPage" element={<PublicLedger />} /> */}
 
           {/* Note: In a real app, 'Table' and 'Stats' usually aren't full pages, 
               but we keep them here to preserve your current flow. */}
@@ -105,17 +113,24 @@ export default function App() {
           <Route path="summary-report" element={<SummaryReport />} />
         </Route>
 
+        {/* 2. FARMER PORTAL (R1) */}
+        <Route path="/farmer" element={<FarmerLayout />}>
+          <Route path="livestock" element={<MyLivestock />} />
+          <Route path="logistics" element={<Logistics />} />
+        </Route>
+
         {/* 2. Admin Login Route */}
         <Route path="/adminlogin" element={<AdminLogin />} />
 
         {/* --- VETERINARIAN ROUTES (R2) --- */}
         <Route path="/vet" element={<VetLayout />}>
           <Route path="dashboard" element={<VetOverview />} />
-          
+
           {/* FIXED: Removed the <div> wrapping the route */}
           <Route path="health-records" element={<HealthRecord />} />
-          
+
           <Route path="transactions" element={<VetTransactionLogs />} />
+          <Route path="movement-permits" element={<MovementPermits />} />
 
           <Route
             path="disease-reporting"
@@ -135,6 +150,7 @@ export default function App() {
           <Route path="animal-db" element={<LivestockDatabase />} />
           <Route path="transactions" element={<TransactionLogs />} />
           <Route path="alert" element={<AlertSystem />} />
+          <Route path="exit-permits" element={<ExitPermits />} />
         </Route>
       </Routes>
     </Router>

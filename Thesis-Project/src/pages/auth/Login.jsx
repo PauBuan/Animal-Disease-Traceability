@@ -54,7 +54,7 @@ const Login = () => {
 
         const msp = response.mspId;
         if (msp === "FarmerMSP") {
-          navigate("/TransactionsPage");
+          navigate("/farmer/livestock");
         } else if (msp === "VetMSP") {
           navigate("/vet/dashboard");
         } else if (msp === "RegulatorMSP") {

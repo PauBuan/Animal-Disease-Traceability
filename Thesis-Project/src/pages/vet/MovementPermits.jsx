@@ -1,0 +1,375 @@
+import { useState, useEffect } from "react";
+
+export default function MovementPermits() {
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+
+  // --- MODAL STATE ---
+  const [showModal, setShowModal] = useState(false);
+  const [activeTab, setActiveTab] = useState("medical"); // 'medical' or 'audit'
+  const [selectedRequest, setSelectedRequest] = useState(null);
+
+  // Data State
+  const [auditTrail, setAuditTrail] = useState([]);
+  const [medicalRecords, setMedicalRecords] = useState([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  useEffect(() => {
+    fetchRequests();
+  }, []);
+
+  const fetchRequests = async () => {
+    try {
+      const res = await fetch("http://localhost:3001/api/transfers/pending");
+      const data = await res.json();
+      setRequests(data || []);
+    } catch (err) {
+      console.error("Error fetching permits:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- OPEN REVIEW MODAL ---
+  const handleOpenReview = async (request) => {
+    setSelectedRequest(request);
+    setShowModal(true);
+    setLoadingDetails(true);
+    setActiveTab("medical"); // Default to Medical View
+
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    try {
+      // 1. Fetch Medical Records (Using existing healthRecords.js route)
+      const medRes = await fetch(
+        `http://localhost:3001/api/health-records/${request.batchId}`,
+      );
+      const medData = await medRes.json();
+      setMedicalRecords(medData || []);
+
+      // 2. Fetch Audit Trail (Blockchain)
+      const auditRes = await fetch(
+        `http://localhost:3001/api/transactions/history/${request.batchId}?username=${user.username}&mspId=${user.mspId}`,
+      );
+      if (auditRes.ok) {
+        const auditData = await auditRes.json();
+        setAuditTrail(auditData);
+      }
+    } catch (err) {
+      console.error("Failed to load details", err);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setSelectedRequest(null);
+  };
+
+  // --- EXECUTION LOGIC ---
+  const handleDecision = async (decision, request, rejectionReason = null) => {
+    if (decision === "REJECT" && !rejectionReason) {
+      rejectionReason = prompt("Enter rejection reason:") || "Vet Decision";
+      if (!rejectionReason) return;
+    }
+
+    setProcessing(true);
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    try {
+      let url =
+        decision === "APPROVE"
+          ? "http://localhost:3001/api/transfers/vet-approve"
+          : "http://localhost:3001/api/transfers/reject";
+
+      let body =
+        decision === "APPROVE"
+          ? {
+              requestId: request._id,
+              userMsp: user.mspId,
+              vetUsername: user.username,
+            }
+          : { requestId: request._id, reason: rejectionReason };
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error);
+      }
+
+      alert(
+        decision === "APPROVE"
+          ? "Transfer Executed & VHC Issued!"
+          : "Request Rejected.",
+      );
+      setShowModal(false);
+      fetchRequests();
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? "Invalid Date" : date.toLocaleDateString();
+  };
+
+  return (
+    <div className="p-8 bg-slate-50 min-h-screen w-full relative">
+      <div className="mb-8">
+        <h1 className="text-3xl font-black text-slate-800">
+          Movement & VHC Permits
+        </h1>
+        <p className="text-slate-500">
+          Approve transport requests and issue health certificates.
+        </p>
+      </div>
+
+      {/* --- MAIN TABLE --- */}
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+        {loading ? (
+          <div className="p-10 text-center text-slate-400">
+            Loading permits...
+          </div>
+        ) : requests.length === 0 ? (
+          <div className="p-16 text-center">
+            <div className="text-4xl mb-4">📭</div>
+            <p className="text-slate-500 font-bold">No Pending Requests</p>
+          </div>
+        ) : (
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>
+                <th className="p-4 text-xs font-bold uppercase text-slate-500">
+                  Date Requested
+                </th>
+                <th className="p-4 text-xs font-bold uppercase text-slate-500">
+                  Farmer / Batch
+                </th>
+                <th className="p-4 text-xs font-bold uppercase text-slate-500">
+                  Destination
+                </th>
+                <th className="p-4 text-xs font-bold uppercase text-slate-500 text-center">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {requests.map((r) => (
+                <tr key={r._id} className="hover:bg-slate-50/50">
+                  <td className="p-4 text-sm text-slate-600">
+                    <div>{formatDate(r.createdAt)}</div>
+                    <div className="text-xs text-emerald-600 font-bold mt-1">
+                      Travel: {formatDate(r.transportDate)}
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <div className="font-bold text-slate-700">
+                      {r.farmerUsername}
+                    </div>
+                    <div className="text-xs font-mono bg-slate-100 w-fit px-2 rounded mt-1">
+                      {r.batchId}
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <span
+                      className={`text-[10px] font-bold px-2 py-1 rounded uppercase ${
+                        r.destinationType === "Internal"
+                          ? "bg-blue-100 text-blue-700"
+                          : r.destinationType === "Slaughter"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-purple-100 text-purple-700"
+                      }`}
+                    >
+                      {r.destinationType}
+                    </span>
+                    <div className="text-xs text-slate-500 mt-1">
+                      {r.destinationType === "Internal"
+                        ? r.receiverUsername
+                        : r.receiverDetails?.address}
+                    </div>
+                  </td>
+                  <td className="p-4 text-center">
+                    <button
+                      onClick={() => handleOpenReview(r)}
+                      className="px-4 py-2 bg-emerald-500 text-white rounded-lg text-xs font-bold hover:bg-emerald-600 shadow-md transition"
+                    >
+                      Review & Approve
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* --- REVIEW MODAL --- */}
+      {showModal && selectedRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-black text-slate-800">
+                  Veterinary Review
+                </h2>
+                <p className="text-sm text-slate-500">
+                  Evaluating Batch:{" "}
+                  <span className="font-mono font-bold text-slate-700">
+                    {selectedRequest.batchId}
+                  </span>
+                </p>
+              </div>
+              <button
+                onClick={handleCloseModal}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-slate-100">
+              <button
+                onClick={() => setActiveTab("medical")}
+                className={`flex-1 py-4 text-sm font-bold transition ${activeTab === "medical" ? "text-emerald-600 border-b-2 border-emerald-500 bg-emerald-50/50" : "text-slate-400 hover:bg-slate-50"}`}
+              >
+                🩺 Medical Records
+              </button>
+              <button
+                onClick={() => setActiveTab("audit")}
+                className={`flex-1 py-4 text-sm font-bold transition ${activeTab === "audit" ? "text-emerald-600 border-b-2 border-emerald-500 bg-emerald-50/50" : "text-slate-400 hover:bg-slate-50"}`}
+              >
+                ⛓️ Chain of Custody
+              </button>
+            </div>
+
+            {/* Content Area */}
+            <div className="p-6 overflow-y-auto flex-1 min-h-[300px]">
+              {loadingDetails ? (
+                <div className="text-center py-10 text-slate-400">
+                  Loading records...
+                </div>
+              ) : (
+                <>
+                  {/* TAB 1: MEDICAL RECORDS */}
+                  {activeTab === "medical" && (
+                    <div className="space-y-4">
+                      <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
+                        <h4 className="text-xs font-bold text-blue-500 uppercase">
+                          Requirements Check
+                        </h4>
+                        <p className="text-sm text-slate-600 mt-1">
+                          Ensure animal has required vaccinations (e.g. ASF/CSF)
+                          within the valid period.
+                        </p>
+                      </div>
+
+                      {medicalRecords.length === 0 ? (
+                        <p className="text-center text-slate-400 italic py-8">
+                          No medical records found for this batch.
+                        </p>
+                      ) : (
+                        medicalRecords.map((rec, idx) => (
+                          <div
+                            key={idx}
+                            className="flex gap-4 p-4 border border-slate-100 rounded-xl hover:bg-slate-50 transition"
+                          >
+                            <div className="text-center w-16 flex-shrink-0">
+                              <div className="text-xl">💉</div>
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-700">
+                                {rec.type}
+                              </div>
+                              <div className="text-sm text-slate-500">
+                                {rec.name}
+                              </div>
+                              <div className="text-xs text-emerald-600 font-bold mt-1">
+                                Date: {formatDate(rec.createdAt)}
+                              </div>
+                              <div className="text-xs text-slate-400 mt-1">
+                                Vet: {rec.vetUsername}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* TAB 2: AUDIT TRAIL */}
+                  {activeTab === "audit" && (
+                    <div className="space-y-3">
+                      {auditTrail.map((log, idx) => (
+                        <div
+                          key={idx}
+                          className="flex gap-4 p-3 rounded-lg border border-slate-100 hover:bg-slate-50"
+                        >
+                          <div className="text-xs text-slate-400 w-24 flex-shrink-0">
+                            {/* FIX: Use log.data.timestamp for reliable date parsing */}
+                            <div>{formatDate(log.data.timestamp)}</div>
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-700 text-sm">
+                              Status:{" "}
+                              <span
+                                className={
+                                  log.data.status === "Verified by Vet"
+                                    ? "text-emerald-600"
+                                    : "text-slate-600"
+                                }
+                              >
+                                {log.data.status}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Owner: {log.data.username} | Loc:{" "}
+                              {log.data.location}
+                            </div>
+                            <div className="text-[10px] text-slate-300 font-mono mt-1">
+                              Tx: {log.txId.substring(0, 15)}...
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+              <button
+                onClick={() => handleDecision("REJECT", selectedRequest)}
+                className="px-4 py-3 rounded-xl text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition"
+                disabled={processing}
+              >
+                Reject
+              </button>
+              <button
+                onClick={() => handleDecision("APPROVE", selectedRequest)}
+                className="px-6 py-3 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition flex items-center gap-2"
+                disabled={processing}
+              >
+                {processing ? "Signing..." : "✅ Sign & Issue VHC"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -6,6 +6,7 @@ import "../../assets/styles/App.css";
 const DashboardIcon = () => <span>📊</span>;
 const ReportsIcon = () => <span>📄</span>;
 const UsersIcon = () => <span>👥</span>;
+const ExitIcon = () => <span>📤</span>;
 const LogoutIcon = () => <span>🚪</span>;
 
 /**
@@ -97,6 +98,17 @@ export default function AdminLayout() {
           >
             <span className="ml-1">📝</span>
             <span className="ml-3">Transaction History</span>
+          </Link>
+          <Link
+            to="/admin/exit-permits"
+            className={`${linkBaseClasses} ${
+              isActive("/admin/exit-permits")
+                ? linkActiveClasses
+                : linkInactiveClasses
+            }`}
+          >
+            <ExitIcon />
+            <span className="ml-3">Exit Verification</span>
           </Link>
           <Link
             to="/admin/alert"

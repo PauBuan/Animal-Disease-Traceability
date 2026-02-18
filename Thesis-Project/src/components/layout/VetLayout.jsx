@@ -6,6 +6,7 @@ import "../../assets/styles/App.css";
 const HealthIcon = () => <span>💉</span>;
 const AlertIcon = () => <span>📢</span>;
 const DashboardIcon = () => <span>📊</span>;
+const PermitIcon = () => <span>🚑</span>;
 const LogoutIcon = () => <span>🚪</span>;
 
 export default function VetLayout() {
@@ -43,7 +44,9 @@ export default function VetLayout() {
           <Link
             to="/vet/dashboard"
             className={`${linkBaseClasses} ${
-              isActive("/vet/dashboard") ? linkActiveClasses : linkInactiveClasses
+              isActive("/vet/dashboard")
+                ? linkActiveClasses
+                : linkInactiveClasses
             }`}
           >
             <DashboardIcon />
@@ -53,7 +56,9 @@ export default function VetLayout() {
           <Link
             to="/vet/health-records"
             className={`${linkBaseClasses} ${
-              isActive("/vet/health-records") ? linkActiveClasses : linkInactiveClasses
+              isActive("/vet/health-records")
+                ? linkActiveClasses
+                : linkInactiveClasses
             }`}
           >
             <HealthIcon />
@@ -63,11 +68,25 @@ export default function VetLayout() {
           <Link
             to="/vet/transactions"
             className={`${linkBaseClasses} ${
-              isActive("/vet/transactions") ? linkActiveClasses : linkInactiveClasses
+              isActive("/vet/transactions")
+                ? linkActiveClasses
+                : linkInactiveClasses
             }`}
           >
             <AlertIcon />
             <span className="ml-3">Reports</span>
+          </Link>
+
+          <Link
+            to="/vet/movement-permits"
+            className={`${linkBaseClasses} ${
+              isActive("/vet/movement-permits")
+                ? linkActiveClasses
+                : linkInactiveClasses
+            }`}
+          >
+            <PermitIcon />
+            <span className="ml-3">Movement Permits</span>
           </Link>
         </nav>
 
@@ -89,7 +108,8 @@ export default function VetLayout() {
           <div className="flex items-center gap-2">
             <div className="w-2 h-8 bg-[var(--green)] rounded-full"></div>
             <h1 className="text-xl font-bold text-gray-800">
-              City Veterinarian <span className="font-normal text-gray-400"></span>
+              City Veterinarian{" "}
+              <span className="font-normal text-gray-400"></span>
             </h1>
           </div>
           <span className="px-4 py-1 bg-green-100 text-[var(--green)] rounded-full text-xs font-black uppercase tracking-tighter">

@@ -15,6 +15,12 @@ export default function PublicLedger() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
+  // --- NEW: Health Log States ---
+  const [healthLogs, setHealthLogs] = useState([]);
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [showHealthModal, setShowHealthModal] = useState(false);
+  const [selectedAnimalForHealth, setSelectedAnimalForHealth] = useState(null);
+
   const [formData, setFormData] = useState({
     fullName: "",
     contactNumber: "",
@@ -84,12 +90,12 @@ export default function PublicLedger() {
     fetchTransactions();
   }, []);
 
-  const viewBlockchainHistory = async (mongoId) => {
+  const viewBlockchainHistory = async (lookupId) => {
     setHistoryLoading(true);
     setShowHistoryModal(true);
     try {
       const res = await fetch(
-        `http://localhost:3001/api/transactions/history/${mongoId}?username=${username}&mspId=${mspId}`,
+        `http://localhost:3001/api/transactions/history/${lookupId}?username=${username}&mspId=${mspId}`,
       );
       if (!res.ok) throw new Error("Blockchain data unreachable");
       const data = await res.json();
@@ -99,6 +105,28 @@ export default function PublicLedger() {
       setHistory([]);
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  // --- NEW: Fetch Health Records ---
+  const viewHealthRecords = async (tx) => {
+    const lookupId = tx.batchId || tx._id;
+    setSelectedAnimalForHealth(tx);
+    setHealthLoading(true);
+    setShowHealthModal(true);
+    try {
+      // We will build this endpoint in the backend next
+      const res = await fetch(
+        `http://localhost:3001/api/health-records/${lookupId}`,
+      );
+      if (!res.ok) throw new Error("Failed to fetch health records");
+      const data = await res.json();
+      setHealthLogs(data || []);
+    } catch (err) {
+      console.error("Health Log Error:", err.message);
+      setHealthLogs([]); // empty for now if endpoint doesn't exist
+    } finally {
+      setHealthLoading(false);
     }
   };
 
@@ -179,6 +207,7 @@ export default function PublicLedger() {
             Register Asset
           </h2>
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* ... (Form inputs remain exactly the same) ... */}
             <div className="grid grid-cols-2 gap-4">
               <input
                 name="fullName"
@@ -282,8 +311,9 @@ export default function PublicLedger() {
               <thead>
                 <tr className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
                   <th className="py-4 px-2 text-emerald-600">Audit</th>
-                  <th className="py-4 px-2">Species</th>
-                  <th className="py-4 px-2">Location</th>
+                  <th className="py-4 px-2 text-blue-600">Medical</th>{" "}
+                  {/* NEW COLUMN */}
+                  <th className="py-4 px-2">Batch ID / Species</th>
                   <th className="py-4 px-2 text-right">Date</th>
                 </tr>
               </thead>
@@ -295,16 +325,32 @@ export default function PublicLedger() {
                   >
                     <td className="py-4 px-2">
                       <button
-                        onClick={() => viewBlockchainHistory(tx._id)}
+                        // --- FIX APPLIED HERE ---
+                        onClick={() =>
+                          viewBlockchainHistory(tx.batchId || tx._id)
+                        }
                         className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-black uppercase hover:bg-emerald-100 transition"
                       >
                         Trail
                       </button>
                     </td>
-                    <td className="py-4 px-2 font-semibold text-slate-700">
-                      {tx.species}
+                    <td className="py-4 px-2">
+                      {/* --- NEW BUTTON --- */}
+                      <button
+                        onClick={() => viewHealthRecords(tx)}
+                        className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase hover:bg-blue-100 transition"
+                      >
+                        Log
+                      </button>
                     </td>
-                    <td className="py-4 px-2 text-slate-600">{tx.location}</td>
+                    <td className="py-4 px-2">
+                      <div className="font-semibold text-slate-700">
+                        {tx.species}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono">
+                        {tx.batchId || "Legacy ID"}
+                      </div>
+                    </td>
                     <td className="py-4 px-2 text-right text-slate-400 text-xs">
                       {new Date(tx.timestamp).toLocaleDateString()}
                     </td>
@@ -316,9 +362,89 @@ export default function PublicLedger() {
         </section>
       </div>
 
-      {/* Improved Audit Trail Modal */}
+      {/* --- NEW: Medical Records Modal --- */}
+      {showHealthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-blue-50 sticky top-0">
+              <div>
+                <h3 className="text-2xl font-black text-blue-900">
+                  Digital Health Log
+                </h3>
+                {selectedAnimalForHealth && (
+                  <p className="text-blue-600 text-sm font-bold uppercase tracking-tighter mt-1">
+                    {selectedAnimalForHealth.batchId || "Legacy Record"} |{" "}
+                    {selectedAnimalForHealth.species}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setShowHealthModal(false)}
+                className="h-10 w-10 flex items-center justify-center rounded-full bg-white text-slate-500 hover:bg-red-50 hover:text-red-500 transition-colors font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-8 overflow-y-auto bg-white">
+              {healthLoading ? (
+                <div className="text-center text-slate-400 py-10">
+                  Loading health data...
+                </div>
+              ) : healthLogs.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-5xl mb-4 opacity-50">📋</div>
+                  <p className="text-slate-500 font-medium">
+                    No medical records found for this asset.
+                  </p>
+                  <p className="text-xs text-slate-400 mt-2">
+                    Only authorized Veterinarians can add records.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {healthLogs.map((log, i) => (
+                    <div
+                      key={i}
+                      className="border border-slate-100 rounded-xl p-4 flex justify-between items-center hover:border-blue-200 transition"
+                    >
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-blue-500 bg-blue-50 px-2 py-1 rounded">
+                          {log.type}
+                        </span>
+                        <h4 className="font-bold text-slate-800 mt-2">
+                          {log.name}
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Administered by:{" "}
+                          <span className="font-medium text-slate-700">
+                            {log.vetUsername}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div
+                          className={`text-xs font-bold px-2 py-1 rounded inline-block mb-2 ${log.status === "Valid" ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"}`}
+                        >
+                          {log.status}
+                        </div>
+                        <div className="text-xs text-slate-400 block">
+                          {formatDate(log.date)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Improved Audit Trail Modal (Unchanged structurally, just logic updated above) */}
       {showHistoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          {/* ... existing modal code ... */}
           <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
             <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0">
               <div>
