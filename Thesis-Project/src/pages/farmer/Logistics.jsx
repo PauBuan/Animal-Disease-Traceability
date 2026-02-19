@@ -20,8 +20,16 @@ export default function Logistics() {
     purpose: "Sales",
     transportDate: "",
   });
+  
 
   const currentUser = localStorage.getItem("username");
+
+  // Helper to get "Tomorrow" in YYYY-MM-DD format
+  const getMinDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1); // Give Vet 24hr buffer
+    return tomorrow.toISOString().split("T")[0];
+  };
 
   useEffect(() => {
     fetchInventory();
@@ -287,6 +295,7 @@ export default function Logistics() {
                 <input
                   type="date"
                   required
+                  min={getMinDate()}
                   value={formData.transportDate}
                   onChange={(e) =>
                     setFormData({ ...formData, transportDate: e.target.value })

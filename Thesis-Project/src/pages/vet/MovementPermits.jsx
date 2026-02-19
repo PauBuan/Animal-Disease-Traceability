@@ -9,6 +9,7 @@ export default function MovementPermits() {
   const [showModal, setShowModal] = useState(false);
   const [activeTab, setActiveTab] = useState("medical"); // 'medical' or 'audit'
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [newTransportDate, setNewTransportDate] = useState(""); // For Vet overrides
 
   // Data State
   const [auditTrail, setAuditTrail] = useState([]);
@@ -23,6 +24,7 @@ export default function MovementPermits() {
     try {
       const res = await fetch("http://localhost:3001/api/transfers/pending");
       const data = await res.json();
+      console.log("Raw Pending Requests from DB:", data);
       setRequests(data || []);
     } catch (err) {
       console.error("Error fetching permits:", err);
@@ -37,6 +39,7 @@ export default function MovementPermits() {
     setShowModal(true);
     setLoadingDetails(true);
     setActiveTab("medical"); // Default to Medical View
+    setNewTransportDate(request.transportDate); // Default to requested date
 
     const user = JSON.parse(localStorage.getItem("user"));
 
@@ -46,6 +49,7 @@ export default function MovementPermits() {
         `http://localhost:3001/api/health-records/${request.batchId}`,
       );
       const medData = await medRes.json();
+      console.log("Raw Medical Data:", medData);
       setMedicalRecords(medData || []);
 
       // 2. Fetch Audit Trail (Blockchain)
@@ -54,6 +58,7 @@ export default function MovementPermits() {
       );
       if (auditRes.ok) {
         const auditData = await auditRes.json();
+        console.log("Raw Audit Data:", auditData);
         setAuditTrail(auditData);
       }
     } catch (err) {
@@ -122,6 +127,11 @@ export default function MovementPermits() {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
     return isNaN(date.getTime()) ? "Invalid Date" : date.toLocaleDateString();
+  };
+
+  // Helper to check if lapsed
+  const isLapsed = (dateString) => {
+    return new Date(dateString) < new Date().setHours(0, 0, 0, 0);
   };
 
   return (
@@ -268,6 +278,52 @@ export default function MovementPermits() {
                     <div className="space-y-4">
                       <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
                         <h4 className="text-xs font-bold text-blue-500 uppercase">
+                          Transport Schedule
+                        </h4>
+
+                        <div className="flex items-center gap-4 mt-2">
+                          <div className="flex-1">
+                            <p className="text-xs text-slate-400">
+                              Requested Date
+                            </p>
+                            <p
+                              className={`font-bold ${
+                                isLapsed(selectedRequest.transportDate)
+                                  ? "text-red-500 line-through"
+                                  : "text-slate-700"
+                              }`}
+                            >
+                              {formatDate(selectedRequest.transportDate)}
+                            </p>
+                          </div>
+
+                          {/* Allow Vet to Change Date if Lapsed or needed */}
+                          <div className="flex-1">
+                            <p className="text-xs text-slate-400">
+                              Approved Date (VHC Validity)
+                            </p>
+                            <input
+                              type="date"
+                              value={newTransportDate.split("T")[0]} // Handle ISO string format
+                              min={new Date().toISOString().split("T")[0]} // Vet can only set Today or Future
+                              onChange={(e) =>
+                                setNewTransportDate(e.target.value)
+                              }
+                              className="w-full p-2 border border-blue-200 rounded-lg text-sm font-bold text-blue-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        {isLapsed(selectedRequest.transportDate) && (
+                          <p className="text-xs text-red-500 mt-2 font-bold flex items-center gap-1">
+                            ⚠️ The requested date has passed. You must set a new
+                            valid date before approving.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
+                        <h4 className="text-xs font-bold text-blue-500 uppercase">
                           Requirements Check
                         </h4>
                         <p className="text-sm text-slate-600 mt-1">
@@ -297,7 +353,7 @@ export default function MovementPermits() {
                                 {rec.name}
                               </div>
                               <div className="text-xs text-emerald-600 font-bold mt-1">
-                                Date: {formatDate(rec.createdAt)}
+                                Date: {formatDate(rec.date)}
                               </div>
                               <div className="text-xs text-slate-400 mt-1">
                                 Vet: {rec.vetUsername}
@@ -319,7 +375,7 @@ export default function MovementPermits() {
                         >
                           <div className="text-xs text-slate-400 w-24 flex-shrink-0">
                             {/* FIX: Use log.data.timestamp for reliable date parsing */}
-                            <div>{formatDate(log.data.timestamp)}</div>
+                            <div>{formatDate(log.timestamp.seconds * 1000)}</div>
                           </div>
                           <div>
                             <div className="font-bold text-slate-700 text-sm">
