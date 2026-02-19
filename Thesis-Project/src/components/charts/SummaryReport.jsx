@@ -1,5 +1,4 @@
-// src/SummaryReport.jsx
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -10,237 +9,220 @@ import {
   Title,
   Tooltip,
   Legend,
+  Filler
 } from "chart.js";
 import { useNavigate } from "react-router-dom";
-import { tableData } from "../../config/data";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-);
-
-// === TOTAL SICK ANIMALS FROM TABLE ===
-const totalSick = tableData.reduce(
-  (sum, row) => sum + row.dita.sick + row.pooc.sick + row.macabling.sick,
-  0
-);
-
-// === EVENLY DISTRIBUTE TOTAL SICK OVER 12 MONTHS ===
-const basePerMonth = Math.floor(totalSick / 12);
-const remainder = totalSick % 12;
-
-// Build array: first `remainder` months get +1
-const monthlyCases = Array(12).fill(basePerMonth);
-for (let i = 0; i < remainder; i++) {
-  monthlyCases[i] += 1;
-}
-
-// Optional: Slight realistic variation (but DETERMINISTIC)
-// We'll add a fixed pattern: peak in Aug, dip in Feb
-const realisticVariation = [0, -2, 0, 1, 2, 1, 2, 3, 2, 1, 0, -1];
-monthlyCases.forEach((val, i) => {
-  monthlyCases[i] = Math.max(0, val + realisticVariation[i]);
-});
-
-const summaryData = {
-  labels: [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ],
-  datasets: [
-    {
-      label: "Reported Cases",
-      data: monthlyCases,
-      fill: false,
-      borderColor: "rgba(21, 128, 61, 1)",
-      backgroundColor: "rgba(21, 128, 61, 0.2)",
-      tension: 0.4,
-    },
-  ],
-};
-
-const summaryOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { position: "top", labels: { color: "#15803D" } },
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
-      title: { display: true, text: "Number of Cases", color: "#15803D" },
-      ticks: { color: "#4B5563" },
-    },
-    x: {
-      ticks: { color: "#4B5563" },
-      title: {
-        display: true,
-        text: "Month (2025)",
-        color: "#15803D",
-        font: { weight: "bold" },
-      },
-    },
-  },
-};
-
-// === STATS ===
-const values = summaryData.datasets[0].data;
-const total = values.reduce((a, b) => a + b, 0);
-const average = (total / values.length).toFixed(1);
-const max = Math.max(...values);
-const maxMonth = summaryData.labels[values.indexOf(max)];
-const min = Math.min(...values);
-const minMonth = summaryData.labels[values.indexOf(min)];
-const trend =
-  values[values.length - 1] > values[0]
-    ? "Increasing"
-    : values[values.length - 1] < values[0]
-    ? "Decreasing"
-    : "Stable";
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 export default function SummaryReport() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [chartData, setChartData] = useState({ labels: [], datasets: [] });
+  const [stats, setStats] = useState({
+    total: 0,
+    average: 0,
+    max: 0,
+    maxMonth: "N/A",
+    min: 0,
+    minMonth: "N/A",
+    trend: "Stable"
+  });
 
-  const handleDownload = () => {
-    alert("Summary report downloaded!");
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const res = await fetch("http://localhost:3001/api/transactions");
+      const data = await res.json();
+      const txData = Array.isArray(data) ? data : [];
+      processData(txData);
+    } catch (err) {
+      console.error("Error fetching summary data:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  return (
-    <div className="flex flex-col min-h-screen">
-      <header className="bg-[var(--green)] text-[var(--white)] w-full shadow-lg fixed top-0 left-0 z-50">
-        <div className="w-full px-6 lg:px-12 py-4 flex justify-between items-center">
-          <h1 className="text-3xl font-bold tracking-wide">
-            Animal Disease Traceability
-          </h1>
-          <nav className="flex space-x-6 text-lg">
-            <a
-              href="/"
-              className="hover:text-[var(--light-green)] transition-all duration-200"
-            >
-              Home
-            </a>
-            <a
-              href="/dashboard"
-              className="hover:text-[var(--light-green)] transition-all duration-200"
-            >
-              Dashboards
-            </a>
-            <a
-              href="/login"
-              className="hover:text-[var(--light-green)] transition-all duration-200"
-            >
-              Login
-            </a>
-          </nav>
+  const processData = (txList) => {
+    const monthsCount = Array(12).fill(0);
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    txList.forEach((tx) => {
+      const severity = (tx.severity || "").toLowerCase();
+      if (severity === "mild" || severity === "dangerous") {
+        const date = new Date(tx.date || tx.timestamp);
+        if (!isNaN(date.getTime())) {
+          const monthIndex = date.getMonth();
+          monthsCount[monthIndex] += Number(tx.quantity) || 1;
+        }
+      }
+    });
+
+    const total = monthsCount.reduce((a, b) => a + b, 0);
+    const maxVal = Math.max(...monthsCount);
+    const minVal = Math.min(...monthsCount);
+    const maxIdx = monthsCount.indexOf(maxVal);
+    const minIdx = monthsCount.indexOf(minVal);
+
+    let trend = "Stable";
+    if (monthsCount[11] > monthsCount[0]) trend = "Increasing";
+    else if (monthsCount[11] < monthsCount[0]) trend = "Decreasing";
+
+    setStats({
+      total,
+      average: total > 0 ? (total / 12).toFixed(1) : "0.0",
+      max: maxVal,
+      maxMonth: monthNames[maxIdx],
+      min: minVal,
+      minMonth: monthNames[minIdx],
+      trend
+    });
+
+    setChartData({
+      labels: monthNames,
+      datasets: [{
+        label: "Confirmed Sick Cases",
+        data: monthsCount,
+        fill: true,
+        borderColor: "#dc2626",
+        backgroundColor: "rgba(220, 38, 38, 0.08)",
+        tension: 0.38,
+        pointRadius: 4,
+        pointHoverRadius: 7,
+        pointBackgroundColor: "#dc2626",
+        pointBorderColor: "#fff",
+        pointBorderWidth: 2
+      }]
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="animate-spin h-12 w-12 mx-auto mb-4 border-4 border-red-500 border-t-transparent rounded-full"></div>
+          <p className="text-slate-600 font-semibold tracking-wide">Loading disease trends...</p>
         </div>
-      </header>
+      </div>
+    );
+  }
 
-      <main className="flex-grow bg-gradient-to-br from-green-50 to-[var(--white)] pt-28 pb-12 px-4 sm:px-6 lg:px-12">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-4xl font-bold text-[var(--green)] text-center mb-8">
-            Summary Report: Disease Cases (Jan–Dec 2025)
+  return (
+    <div className="min-h-screen bg-slate-50/70">
+      <main className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 py-8 lg:py-12">
+        <header className="mb-10 lg:mb-12">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight">
+            Disease Summary Report
           </h2>
+          <p className="mt-2 text-slate-600 font-medium">
+            Annual overview of confirmed sick cases (mild + dangerous severity)
+          </p>
+        </header>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-              <h3 className="text-2xl font-semibold text-green-700 mb-4 text-center">
-                Monthly Case Trend (Full Year)
-              </h3>
-              <div className="h-80 w-full">
-                <Line data={summaryData} options={summaryOptions} />
-              </div>
-            </div>
-
-            <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-              <h3 className="text-2xl font-semibold text-green-700 mb-6">
-                Statistical Summary
-              </h3>
-              <div className="space-y-5">
-                <div className="flex justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                  <span className="font-medium text-gray-800">
-                    Total Cases (2025)
-                  </span>
-                  <span className="text-xl font-bold text-green-700">
-                    {total}
-                  </span>
-                </div>
-                <div className="flex justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <span className="font-medium text-gray-800">
-                    Monthly Average
-                  </span>
-                  <span className="text-lg font-semibold text-gray-700">
-                    {average}
-                  </span>
-                </div>
-                <div className="flex justify-between p-4 bg-red-50 rounded-lg border border-red-200">
-                  <span className="font-medium text-gray-800">Peak Month</span>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-red-600">
-                      {max} cases
-                    </p>
-                    <p className="text-sm text-gray-600">{maxMonth}</p>
-                  </div>
-                </div>
-                <div className="flex justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <span className="font-medium text-gray-800">
-                    Lowest Month
-                  </span>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-blue-600">
-                      {min} cases
-                    </p>
-                    <p className="text-sm text-gray-600">{minMonth}</p>
-                  </div>
-                </div>
-                <div className="flex justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <span className="font-medium text-gray-800">
-                    Yearly Trend
-                  </span>
-                  <span
-                    className={`text-lg font-bold ${
-                      trend === "Increasing"
-                        ? "text-red-600"
-                        : trend === "Decreasing"
-                        ? "text-green-600"
-                        : "text-gray-600"
-                    }`}
-                  >
-                    {trend}
-                  </span>
-                </div>
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+          {/* Chart - takes more space */}
+          <div className="lg:col-span-8 bg-white rounded-3xl shadow border border-slate-100/80 p-6 lg:p-8">
+            <h3 className="text-base font-bold text-slate-500 uppercase tracking-wider mb-6">
+              Monthly Sick Cases Trend – Full Year
+            </h3>
+            <div className="h-[340px] sm:h-[380px] lg:h-[420px]">
+              <Line
+                data={chartData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: { mode: "index", intersect: false }
+                  },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      grid: { color: "rgba(0,0,0,0.04)" },
+                      ticks: { color: "#64748b" }
+                    },
+                    x: {
+                      grid: { display: false },
+                      ticks: { color: "#64748b" }
+                    }
+                  }
+                }}
+              />
             </div>
           </div>
 
-          <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="bg-gray-600 text-white px-8 py-3 rounded-xl hover:bg-gray-700 transition font-medium shadow-md"
-            >
-              Back to Dashboard
-            </button>
-            <button
-              onClick={handleDownload}
-              className="bg-[var(--green)] text-white px-8 py-3 rounded-xl hover:bg-[var(--light-green)] hover:text-[var(--green)] transition font-medium shadow-md"
-            >
-              Download Report
-            </button>
+          {/* Stats Cards */}
+          <div className="lg:col-span-4 space-y-6">
+            {/* Total Cases - prominent card */}
+            <div className="bg-gradient-to-br from-red-600 to-red-700 p-8 rounded-3xl text-white shadow-xl shadow-red-200/40">
+              <p className="text-red-100 text-sm font-semibold uppercase tracking-wider mb-2">
+                Total Confirmed Cases
+              </p>
+              <div className="text-6xl sm:text-7xl font-black">
+                {stats.total.toLocaleString()}
+              </div>
+            </div>
+
+            {/* Detailed Stats */}
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-7 space-y-6">
+              <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                <span className="text-slate-600 font-medium">Peak Month</span>
+                <span className="font-bold text-red-600">
+                  {stats.maxMonth} <span className="text-slate-400">({stats.max})</span>
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                <span className="text-slate-600 font-medium">Average per Month</span>
+                <span className="font-bold text-slate-800">{stats.average}</span>
+              </div>
+
+              <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                <span className="text-slate-600 font-medium">Lowest Month</span>
+                <span className="font-bold text-blue-600">
+                  {stats.minMonth} <span className="text-slate-400">({stats.min})</span>
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center py-2">
+                <span className="text-slate-600 font-medium">Yearly Trend</span>
+                <span
+                  className={`font-semibold px-4 py-1.5 rounded-full text-sm ${
+                    stats.trend === "Increasing"
+                      ? "bg-red-100 text-red-700 border border-red-200"
+                      : stats.trend === "Decreasing"
+                      ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                      : "bg-slate-100 text-slate-700 border border-slate-200"
+                  }`}
+                >
+                  {stats.trend}
+                </span>
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="mt-12 lg:mt-16 flex flex-col sm:flex-row justify-center gap-5 sm:gap-6">
+          <button
+            onClick={() => navigate("/home")}
+            className="px-10 py-4 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-2xl transition-all shadow-md flex items-center justify-center gap-2 text-sm uppercase tracking-wider"
+          >
+            ← Return to Home
+          </button>
+
+          <button
+            onClick={() => window.print()}
+            className="px-10 py-4 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-semibold rounded-2xl transition-all shadow-md flex items-center justify-center gap-2 text-sm uppercase tracking-wider"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            Download / Print Report
+          </button>
         </div>
       </main>
     </div>

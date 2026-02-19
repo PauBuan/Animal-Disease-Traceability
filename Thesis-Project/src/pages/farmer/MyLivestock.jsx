@@ -189,7 +189,7 @@ export default function PublicLedger() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-12">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-12">
       <header className="max-w-7xl mx-auto mb-12 text-center">
         <h1 className="text-4xl font-black text-emerald-900 tracking-tight">
           Animal Health Ledger
@@ -553,15 +553,6 @@ export default function PublicLedger() {
           </div>
         </div>
       )}
-
-      <div className="mt-12 text-center">
-        <button
-          onClick={handleLogout}
-          className="bg-white text-slate-400 border border-slate-200 px-8 py-3 rounded-2xl hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all font-bold text-sm"
-        >
-          🚪 <span className="ml-2">Sign Out</span>
-        </button>
-      </div>
     </div>
   );
 }

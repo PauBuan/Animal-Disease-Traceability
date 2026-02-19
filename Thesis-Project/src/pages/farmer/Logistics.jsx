@@ -20,14 +20,12 @@ export default function Logistics() {
     purpose: "Sales",
     transportDate: "",
   });
-  
 
   const currentUser = localStorage.getItem("username");
 
-  // Helper to get "Tomorrow" in YYYY-MM-DD format
   const getMinDate = () => {
     const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1); // Give Vet 24hr buffer
+    tomorrow.setDate(tomorrow.getDate() + 1);
     return tomorrow.toISOString().split("T")[0];
   };
 
@@ -38,9 +36,7 @@ export default function Logistics() {
 
   const fetchInventory = async () => {
     try {
-      const res = await fetch(
-        `http://localhost:3001/api/transactions/${currentUser}`,
-      );
+      const res = await fetch(`http://localhost:3001/api/transactions/${currentUser}`);
       const data = await res.json();
       setAnimals(data || []);
     } catch (err) {
@@ -50,9 +46,7 @@ export default function Logistics() {
 
   const fetchMovements = async () => {
     try {
-      const res = await fetch(
-        `http://localhost:3001/api/transfers/${currentUser}`,
-      );
+      const res = await fetch(`http://localhost:3001/api/transfers/${currentUser}`);
       const data = await res.json();
       const out = data.filter((r) => r.farmerUsername === currentUser);
       const inc = data.filter((r) => r.receiverUsername === currentUser);
@@ -65,40 +59,31 @@ export default function Logistics() {
 
   const triggerFileUpload = (requestId) => {
     setUploadingId(requestId);
-    fileInputRef.current.click(); // Opens the system file dialog
+    fileInputRef.current.click();
   };
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file || !uploadingId) return;
-
-    // SIMULATION: Use the filename as the "URL".
-    // In a real app, you would FormData.append('file', file) and POST to a storage server.
     const fakeUrl = `http://cloud-storage.com/uploads/${encodeURIComponent(file.name)}`;
 
     try {
-      const res = await fetch(
-        "http://localhost:3001/api/transfers/upload-proof",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ requestId: uploadingId, proofUrl: fakeUrl }),
-        },
-      );
-
+      const res = await fetch("http://localhost:3001/api/transfers/upload-proof", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId: uploadingId, proofUrl: fakeUrl }),
+      });
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || "Upload failed");
       }
-
       alert(`File "${file.name}" uploaded successfully! Sent to Regulator.`);
-      fetchMovements(); // Refresh UI
+      fetchMovements();
     } catch (err) {
       alert("Error: " + err.message);
     } finally {
-      // Reset
       setUploadingId(null);
-      e.target.value = null; // Allow selecting the same file again
+      e.target.value = null;
     }
   };
 
@@ -110,14 +95,8 @@ export default function Logistics() {
       batchId: selectedBatch,
       farmerUsername: currentUser,
       destinationType: formData.destinationType,
-      receiverUsername:
-        formData.destinationType === "Internal"
-          ? formData.receiverUsername
-          : null,
-      receiverDetails:
-        formData.destinationType !== "Internal"
-          ? { name: formData.receiverName, address: formData.receiverAddress }
-          : null,
+      receiverUsername: formData.destinationType === "Internal" ? formData.receiverUsername : null,
+      receiverDetails: formData.destinationType !== "Internal" ? { name: formData.receiverName, address: formData.receiverAddress } : null,
       purpose: formData.purpose,
       transportDate: formData.transportDate,
     };
@@ -128,12 +107,10 @@ export default function Logistics() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || "Failed to submit");
       }
-
       alert("Transport Request Submitted!");
       setActiveTab("outgoing");
       fetchMovements();
@@ -143,28 +120,17 @@ export default function Logistics() {
   };
 
   const handleReceive = async (requestId) => {
-    if (
-      !confirm(
-        "Confirm receipt? This will transfer ownership on the Blockchain.",
-      )
-    )
-      return;
-
+    if (!confirm("Confirm receipt? This will transfer ownership on the Blockchain.")) return;
     try {
-      const res = await fetch(
-        "http://localhost:3001/api/transfers/receiver-confirm",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ requestId, userMsp: "FarmerMSP" }),
-        },
-      );
-
+      const res = await fetch("http://localhost:3001/api/transfers/receiver-confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, userMsp: "FarmerMSP" }),
+      });
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || "Failed to receive");
       }
-
       alert("Transfer Successful! Animal is now in your inventory.");
       fetchMovements();
       fetchInventory();
@@ -175,76 +141,71 @@ export default function Logistics() {
 
   const StatusBadge = ({ status }) => {
     let color = "bg-slate-100 text-slate-600 border-slate-200";
-    if (status === "Pending Vet Review")
-      color = "bg-amber-100 text-amber-700 border-amber-200";
-    if (status === "Approved (VHC Issued)")
-      color = "bg-blue-100 text-blue-700 border-blue-200 animate-pulse";
-    if (status.includes("Completed"))
-      color = "bg-emerald-100 text-emerald-700 border-emerald-200";
+    if (status === "Pending Vet Review") color = "bg-amber-100 text-amber-700 border-amber-200";
+    if (status === "Approved (VHC Issued)") color = "bg-blue-100 text-blue-700 border-blue-200 animate-pulse";
+    if (status.includes("Completed")) color = "bg-emerald-100 text-emerald-700 border-emerald-200";
     if (status === "Rejected") color = "bg-red-100 text-red-700 border-red-200";
 
     return (
-      <span
-        className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${color}`}
-      >
+      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${color}`}>
         {status}
       </span>
     );
   };
 
   return (
-    <div className="p-8 lg:p-12 max-w-6xl mx-auto">
-      <header className="mb-10">
-        <h1 className="text-3xl font-black text-slate-800">
-          Logistics & Movement
+    <div className="p-8 lg:p-12 max-w-6xl mx-auto flex flex-col items-center">
+      <header className="mb-10 text-center">
+        <h1 className="text-4xl font-black text-slate-800 uppercase tracking-tight">
+          Logistics & <span className="text-[var(--green)]">Movement</span>
         </h1>
         <p className="text-slate-500 font-medium mt-2">
-          Manage asset transfers, VHCs, and receipts.
+          Manage asset transfers, Health Certificates, and receipts.
         </p>
       </header>
 
-      {/* --- HIDDEN FILE INPUT --- */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        className="hidden"
-        accept="image/*,.pdf"
-      />
+      <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,.pdf" />
 
-      <div className="flex gap-2 mb-8 bg-white p-1.5 rounded-2xl w-fit border border-slate-200 shadow-sm">
+      {/* TABS MENU */}
+      <div className="flex gap-2 mb-12 bg-white p-2 rounded-2xl w-fit border border-slate-200 shadow-md">
         <button
           onClick={() => setActiveTab("apply")}
-          className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === "apply" ? "bg-blue-600 text-white shadow-md" : "text-slate-500 hover:bg-slate-50"}`}
+          className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${
+            activeTab === "apply" ? "bg-[var(--green)] text-white shadow-lg scale-105" : "text-slate-500 hover:bg-slate-50"
+          }`}
         >
           📤 New Request
         </button>
         <button
           onClick={() => setActiveTab("outgoing")}
-          className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === "outgoing" ? "bg-blue-600 text-white shadow-md" : "text-slate-500 hover:bg-slate-50"}`}
+          className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${
+            activeTab === "outgoing" ? "bg-[var(--green)] text-white shadow-lg scale-105" : "text-slate-500 hover:bg-slate-50"
+          }`}
         >
           🛫 Outgoing ({outgoing.length})
         </button>
         <button
           onClick={() => setActiveTab("incoming")}
-          className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === "incoming" ? "bg-emerald-600 text-white shadow-md" : "text-slate-500 hover:bg-slate-50"}`}
+          className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${
+            activeTab === "incoming" ? "bg-[var(--green)] text-white shadow-lg scale-105" : "text-slate-500 hover:bg-slate-50"
+          }`}
         >
-          🛬 Incoming (
-          {incoming.filter((i) => i.status === "Approved (VHC Issued)").length})
+          🛬 Incoming ({incoming.filter((i) => i.status === "Approved (VHC Issued)").length})
         </button>
       </div>
 
+      {/* APPLY TAB */}
       {activeTab === "apply" && (
-        <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 max-w-3xl">
+        <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 w-full max-w-2xl transform transition-all">
           <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200">
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
-                Select Asset
+            <div className="bg-green-50/50 p-6 rounded-3xl border border-green-100">
+              <label className="block text-xs font-black text-[var(--green)] uppercase tracking-widest mb-3">
+                Select Asset from Inventory
               </label>
               <select
                 value={selectedBatch}
                 onChange={(e) => setSelectedBatch(e.target.value)}
-                className="w-full p-4 border border-slate-200 rounded-2xl bg-white text-slate-700 font-bold outline-none"
+                className="w-full p-4 border-2 border-slate-100 rounded-2xl bg-white text-slate-700 font-bold outline-none focus:border-[var(--green)] transition-all"
               >
                 <option value="">-- Choose Animal --</option>
                 {animals.map((a) => (
@@ -261,7 +222,7 @@ export default function Logistics() {
                       : a.severity === "safe"
                         ? "✅ Ready"
                         : a.severity === "Ongoing"
-                          ? "⏳ Unverified" // NEW LABEL
+                          ? "⏳ Unverified" // UPDATED LABEL
                           : "⛔ Sick"}
                   </option>
                 ))}
@@ -275,17 +236,12 @@ export default function Logistics() {
                 </label>
                 <select
                   value={formData.destinationType}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      destinationType: e.target.value,
-                    })
-                  }
-                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  onChange={(e) => setFormData({ ...formData, destinationType: e.target.value })}
+                  className="w-full p-4 border-2 border-slate-50 rounded-xl outline-none focus:border-[var(--green)] font-medium"
                 >
-                  <option value="Internal">Internal (Local Farmer)</option>
+                  <option value="Internal">Local Farmer</option>
                   <option value="Slaughter">Slaughterhouse</option>
-                  <option value="External">External (Export)</option>
+                  <option value="External">Export / Other</option>
                 </select>
               </div>
               <div>
@@ -297,150 +253,98 @@ export default function Logistics() {
                   required
                   min={getMinDate()}
                   value={formData.transportDate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, transportDate: e.target.value })
-                  }
-                  className="w-full p-3 border border-slate-200 rounded-xl outline-none"
+                  onChange={(e) => setFormData({ ...formData, transportDate: e.target.value })}
+                  className="w-full p-4 border-2 border-slate-50 rounded-xl outline-none focus:border-[var(--green)] font-medium"
                 />
               </div>
             </div>
 
-            <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100">
-              <h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-4">
-                Receiver Information
+            <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200">
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">
+                Receiver Details
               </h3>
               {formData.destinationType === "Internal" ? (
                 <input
                   type="text"
-                  placeholder="e.g. buyer@gmail.com"
-                  className="w-full p-4 border border-blue-200 rounded-xl outline-none"
+                  placeholder="Enter Buyer Username/Email"
+                  className="w-full p-4 border-2 border-white rounded-xl outline-none focus:border-[var(--green)] shadow-sm font-bold"
                   value={formData.receiverUsername}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      receiverUsername: e.target.value,
-                    })
-                  }
+                  onChange={(e) => setFormData({ ...formData, receiverUsername: e.target.value })}
                 />
               ) : (
                 <div className="space-y-4">
                   <input
                     type="text"
-                    placeholder="Name"
-                    className="w-full p-4 border border-blue-200 rounded-xl outline-none"
+                    placeholder="Receiver Name"
+                    className="w-full p-4 border-2 border-white rounded-xl outline-none focus:border-[var(--green)] shadow-sm font-bold"
                     value={formData.receiverName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, receiverName: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, receiverName: e.target.value })}
                   />
                   <input
                     type="text"
-                    placeholder="Address"
-                    className="w-full p-4 border border-blue-200 rounded-xl outline-none"
+                    placeholder="Full Destination Address"
+                    className="w-full p-4 border-2 border-white rounded-xl outline-none focus:border-[var(--green)] shadow-sm font-bold"
                     value={formData.receiverAddress}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        receiverAddress: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setFormData({ ...formData, receiverAddress: e.target.value })}
                   />
                 </div>
               )}
             </div>
-            <button className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition">
-              Submit Application
+            <button className="w-full bg-[var(--green)] text-white font-black py-5 rounded-2xl shadow-xl hover:opacity-90 active:scale-95 transition-all uppercase tracking-widest">
+              Submit Transport Request
             </button>
           </form>
         </div>
       )}
 
-      {/* OUTGOING & INCOMING TABS (Use your previous code, no changes needed there) */}
-      {activeTab === "outgoing" && (
-        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
-          <table className="w-full text-left">
+      {/* TABLES SECTION */}
+      {(activeTab === "outgoing" || activeTab === "incoming") && (
+        <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden w-full">
+          <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
-                <th className="p-6 text-xs font-bold text-slate-400 uppercase">
-                  Batch ID
-                </th>
-                <th className="p-6 text-xs font-bold text-slate-400 uppercase">
-                  To
-                </th>
-                <th className="p-6 text-xs font-bold text-slate-400 uppercase">
-                  Status
-                </th>
+                <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest">Identification</th>
+                <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest">Counterparty</th>
+                <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Status / Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {outgoing.map((r) => (
-                <tr key={r._id}>
-                  <td className="p-6 font-mono text-xs font-bold text-slate-600">
-                    {r.batchId}
-                  </td>
-                  <td className="p-6 text-sm">
-                    {r.destinationType === "Internal"
-                      ? r.receiverUsername
-                      : r.receiverDetails?.name}
-                  </td>
+              {activeTab === "outgoing" && outgoing.map((r) => (
+                <tr key={r._id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="p-6">
+                    <span className="font-mono text-xs font-black text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                      {r.batchId}
+                    </span>
+                  </td>
+                  <td className="p-6 font-bold text-slate-700">
+                    {r.destinationType === "Internal" ? r.receiverUsername : r.receiverDetails?.name}
+                  </td>
+                  <td className="p-6 flex flex-col items-center gap-2">
                     <StatusBadge status={r.status} />
-                    {/* ---UPLOAD BUTTON LOGIC --- */}
-                    {r.destinationType !== "Internal" &&
-                      (r.status === "Approved (VHC Issued)" ||
-                        r.status === "Proof Rejected") && (
-                        <div className="mt-2">
-                          <button
-                            onClick={() => triggerFileUpload(r._id)}
-                            className="text-[10px] font-bold bg-slate-800 text-white px-3 py-1.5 rounded-lg hover:bg-slate-700 transition shadow-sm flex items-center gap-1"
-                          >
-                            📄 Upload Proof
-                          </button>
-                          {r.status === "Proof Rejected" && (
-                            <p className="text-[10px] text-red-500 mt-1">
-                              {r.rejectionReason}
-                            </p>
-                          )}
-                        </div>
-                      )}
+                    {r.destinationType !== "Internal" && (r.status === "Approved (VHC Issued)" || r.status === "Proof Rejected") && (
+                      <button
+                        onClick={() => triggerFileUpload(r._id)}
+                        className="text-[10px] font-black bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-black transition shadow-md uppercase"
+                      >
+                        📄 Upload Proof
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {activeTab === "incoming" && (
-        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr>
-                <th className="p-6 text-xs font-bold text-slate-400 uppercase">
-                  From
-                </th>
-                <th className="p-6 text-xs font-bold text-slate-400 uppercase">
-                  Batch ID
-                </th>
-                <th className="p-6 text-xs font-bold text-slate-400 uppercase">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {incoming.map((r) => (
-                <tr key={r._id}>
-                  <td className="p-6 font-bold text-slate-700">
-                    {r.farmerUsername}
-                  </td>
-                  <td className="p-6 font-mono text-xs font-bold text-slate-600">
-                    {r.batchId}
-                  </td>
+              {activeTab === "incoming" && incoming.map((r) => (
+                <tr key={r._id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="p-6">
+                    <span className="font-mono text-xs font-black text-[var(--green)] bg-green-50 px-2 py-1 rounded">
+                      {r.batchId}
+                    </span>
+                  </td>
+                  <td className="p-6 font-bold text-slate-700">{r.farmerUsername}</td>
+                  <td className="p-6 text-center">
                     {r.status === "Approved (VHC Issued)" ? (
                       <button
                         onClick={() => handleReceive(r._id)}
-                        className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-600 shadow-md transition"
+                        className="bg-[var(--green)] text-white px-6 py-2.5 rounded-xl text-xs font-black hover:opacity-90 shadow-lg transition uppercase tracking-widest"
                       >
                         📥 Confirm Receipt
                       </button>
@@ -452,6 +356,11 @@ export default function Logistics() {
               ))}
             </tbody>
           </table>
+          {(activeTab === "outgoing" ? outgoing : incoming).length === 0 && (
+            <div className="p-20 text-center text-slate-400 font-bold italic">
+              No movement records found.
+            </div>
+          )}
         </div>
       )}
     </div>

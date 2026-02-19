@@ -10,7 +10,6 @@ import {
 import "./assets/styles/App.css";
 
 // --- Public Page Imports (Updated Paths) ---
-import PublicDashboard from "./pages/public/PublicDashboard";
 import Login from "./pages/auth/Login";
 import MovementMap from "./pages/public/MovementMap";
 // import PublicLedger from "./pages/public/PublicLedger";
@@ -63,12 +62,6 @@ function PublicLayout() {
               Home
             </Link>
             <Link
-              to="/dashboard"
-              className="hover:text-[var(--light-green)] transition-all duration-200"
-            >
-              Dashboards
-            </Link>
-            <Link
               to="/login"
               className="hover:text-[var(--light-green)] transition-all duration-200"
             >
@@ -100,7 +93,7 @@ export default function App() {
         {/* 1. Public Routes */}
         <Route path="/" element={<PublicLayout />}>
           <Route index element={<LandingPage />} />
-          <Route path="dashboard" element={<PublicDashboard />} />
+          <Route path="home" element={<LandingPage />} />
           <Route path="animal-movement" element={<MovementMap />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />

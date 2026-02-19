@@ -153,16 +153,16 @@ export default function OutbreakStats() {
 
           <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/home")}
               className="bg-gray-600 text-white px-8 py-3 rounded-xl hover:bg-gray-700 transition font-medium shadow-md"
             >
-              Back to Dashboard
+              ← Return to Home
             </button>
             <button
               onClick={handleDownload}
               className="bg-[var(--green)] text-white px-8 py-3 rounded-xl hover:bg-[var(--light-green)] hover:text-[var(--green)] transition font-medium shadow-md"
             >
-              Download Report
+              Download / Print Report
             </button>
           </div>
         </div>
