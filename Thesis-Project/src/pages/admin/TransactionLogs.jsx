@@ -44,11 +44,16 @@ export default function AdminTransaction() {
           {loading ? (
             <div className="p-8 space-y-3">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-12 bg-gray-200 rounded animate-pulse" />
+                <div
+                  key={i}
+                  className="h-12 bg-gray-200 rounded animate-pulse"
+                />
               ))}
             </div>
           ) : transactions.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">No records found</div>
+            <div className="p-8 text-center text-gray-500">
+              No records found
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-emerald-100">
@@ -61,7 +66,7 @@ export default function AdminTransaction() {
                       "Species",
                       "Quantity",
                       "Location",
-                      "Health Status",
+                      "Initial Observation",
                       "Diagnosed Disease",
                       "Severity",
                       "Date & Time",
@@ -82,13 +87,27 @@ export default function AdminTransaction() {
                       key={tx._id}
                       className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
                     >
-                      <td className="px-5 py-3 text-sm text-center">{tx.username}</td>
-                      <td className="px-5 py-3 text-sm text-center">{tx.fullName}</td>
-                      <td className="px-5 py-3 text-sm text-center">{tx.contactNumber}</td>
-                      <td className="px-5 py-3 text-sm text-center">{tx.species}</td>
-                      <td className="px-5 py-3 text-sm text-center">{tx.quantity}</td>
-                      <td className="px-5 py-3 text-sm text-center">{tx.location}</td>
-                      <td className="px-5 py-3 text-sm text-center">{tx.healthStatus}</td>
+                      <td className="px-5 py-3 text-sm text-center">
+                        {tx.username}
+                      </td>
+                      <td className="px-5 py-3 text-sm text-center">
+                        {tx.fullName}
+                      </td>
+                      <td className="px-5 py-3 text-sm text-center">
+                        {tx.contactNumber}
+                      </td>
+                      <td className="px-5 py-3 text-sm text-center">
+                        {tx.species}
+                      </td>
+                      <td className="px-5 py-3 text-sm text-center">
+                        {tx.quantity}
+                      </td>
+                      <td className="px-5 py-3 text-sm text-center">
+                        {tx.location}
+                      </td>
+                      <td className="px-5 py-3 text-sm text-center">
+                        {tx.healthStatus}
+                      </td>
 
                       {/* Diagnosed Disease */}
                       <td className="px-5 py-3 text-sm text-center">
@@ -102,10 +121,10 @@ export default function AdminTransaction() {
                             tx.severity === "safe"
                               ? "bg-green-100 text-green-800"
                               : tx.severity === "mild"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : tx.severity === "dangerous"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-gray-100 text-gray-600"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : tx.severity === "dangerous"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-gray-100 text-gray-600"
                           }`}
                         >
                           {tx.severity || "Ongoing"}
@@ -113,7 +132,9 @@ export default function AdminTransaction() {
                       </td>
 
                       <td className="px-5 py-3 text-xs text-center text-gray-600">
-                        {tx.timestamp ? format(new Date(tx.timestamp), "PPp") : "N/A"}
+                        {tx.timestamp
+                          ? format(new Date(tx.timestamp), "PPp")
+                          : "N/A"}
                       </td>
                     </tr>
                   ))}

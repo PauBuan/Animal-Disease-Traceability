@@ -369,81 +369,99 @@ export default function AdminAnimalDB() {
                 </p>
               ) : (
                 <div className="space-y-4">
-                  {farmerAnimals.map((animal, idx) => (
-                    <div
-                      key={animal._id || idx}
-                      className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-emerald-500 transition-all hover:shadow-xl group"
-                    >
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <h4 className="text-xl font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
-                            {animal.species}
-                            <span className="ml-2 text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded font-mono">
-                              {animal.batchId || "Legacy ID"}
-                            </span>
-                          </h4>
-                          <p className="text-sm text-slate-500 mt-1">
-                            Quantity:{" "}
-                            <span className="font-bold text-slate-700">
-                              {animal.quantity} heads
-                            </span>
-                          </p>
-                        </div>
-                        <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-bold">
-                          {formatDate(animal.timestamp)}
-                        </span>
-                      </div>
+                  {farmerAnimals.map((animal, idx) => {
+                    // Check if animal is sick for UI indicators
+                    const isSick =
+                      animal.severity === "mild" ||
+                      animal.severity === "dangerous";
 
-                      <div className="grid grid-cols-2 gap-3 text-sm mb-4">
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                          <span className="block text-slate-400 text-xs mb-1">
-                            Health Status (Farmer)
-                          </span>
-                          <span className="text-slate-800 font-semibold">
-                            {animal.healthStatus}
-                          </span>
-                        </div>
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                          <span className="block text-slate-400 text-xs mb-1">
-                            Location
-                          </span>
-                          <span className="text-slate-800 font-semibold">
-                            {animal.location}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* --- NEW ACTION BUTTONS ROW --- */}
-                      <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-50">
-                        <button
-                          onClick={() => viewHealthRecords(animal)}
-                          className="flex items-center text-blue-600 text-sm font-semibold hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
-                        >
-                          Medical Log
-                        </button>
-
-                        <button
-                          onClick={() => viewBlockchainHistory(animal)}
-                          className="flex items-center text-emerald-600 text-sm font-semibold hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors"
-                        >
-                          Audit Trail
-                          <svg
-                            className="w-4 h-4 ml-1"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                    return (
+                      <div
+                        key={animal._id || idx}
+                        className={`bg-white border rounded-2xl p-6 transition-all hover:shadow-xl group ${
+                          isSick
+                            ? "border-red-300 shadow-sm shadow-red-100"
+                            : "border-slate-200 hover:border-emerald-500"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4
+                                className={`text-xl font-black capitalize ${isSick ? "text-red-700" : "text-slate-900 group-hover:text-emerald-600 transition-colors"}`}
+                              >
+                                {isSick && (
+                                  <span className="mr-2" title="Sick Asset">
+                                    ⚠️
+                                  </span>
+                                )}
+                                {animal.species}
+                              </h4>
+                              <span className="bg-slate-100 text-slate-500 text-[10px] px-2 py-1 rounded-md font-mono border border-slate-200">
+                                {animal.batchId || "Legacy ID"}
+                              </span>
+                            </div>
+                            <p className="text-sm text-slate-500 mt-1">
+                              Quantity:{" "}
+                              <span className="font-bold text-slate-700">
+                                {animal.quantity} heads
+                              </span>
+                            </p>
+                          </div>
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-bold ${
+                              isSick
+                                ? "bg-red-50 text-red-600"
+                                : "bg-emerald-50 text-emerald-600"
+                            }`}
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 5l7 7-7 7"
-                            />
-                          </svg>
-                        </button>
+                            {formatDate(animal.timestamp)}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+                          <div
+                            className={`p-3 rounded-lg border ${isSick ? "bg-red-50/50 border-red-100" : "bg-slate-50 border-slate-100"}`}
+                          >
+                            <span className="block text-slate-400 text-xs mb-1">
+                              Health Status
+                            </span>
+                            <span
+                              className={`font-semibold ${isSick ? "text-red-700" : "text-slate-800"}`}
+                            >
+                              {isSick && animal.diagnosedDisease
+                                ? animal.diagnosedDisease
+                                : animal.healthStatus}
+                            </span>
+                          </div>
+                          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                            <span className="block text-slate-400 text-xs mb-1">
+                              Location
+                            </span>
+                            <span className="text-slate-800 font-semibold">
+                              {animal.location}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* ACTION BUTTONS ROW */}
+                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-50">
+                          <button
+                            onClick={() => viewHealthRecords(animal)}
+                            className="flex items-center text-blue-600 text-sm font-semibold hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            Medical Log
+                          </button>
+                          <button
+                            onClick={() => viewBlockchainHistory(animal)}
+                            className="flex items-center text-emerald-600 text-sm font-semibold hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            Audit Trail
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -620,22 +638,45 @@ export default function AdminAnimalDB() {
                           </div>
                           <div className="col-span-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
                             <span className="block text-slate-400 uppercase text-[9px] mb-1">
-                              Condition
+                              {!item.data.severity ||
+                              item.data.severity === "Ongoing"
+                                ? "Initial Observation (Farmer)"
+                                : "Official Health Status (Vet)"}
                             </span>
-                            <span className="text-slate-800 italic">
-                              "{item.data.healthStatus}"
+
+                            <span className="text-slate-800">
+                              {!item.data.severity ||
+                              item.data.severity === "Ongoing" ? (
+                                <span className="italic text-slate-600">
+                                  "{item.data.healthStatus}"
+                                </span>
+                              ) : item.data.severity === "safe" ? (
+                                <span className="font-bold text-emerald-600">
+                                  ✅ Verified Healthy
+                                </span>
+                              ) : item.data.severity === "mild" ? (
+                                <span className="font-bold text-amber-600">
+                                  ⚠️ Mild Illness
+                                </span>
+                              ) : (
+                                <span className="font-bold text-red-600">
+                                  ⛔ Dangerous Disease
+                                </span>
+                              )}
                             </span>
                           </div>
                         </div>
 
-                        {item.data.diagnosedDisease && (
-                          <div className="mt-3 bg-red-50 border border-red-100 p-3 rounded-lg flex items-center gap-3">
-                            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                            <span className="text-xs font-black text-red-600">
-                              DIAGNOSIS: {item.data.diagnosedDisease}
-                            </span>
-                          </div>
-                        )}
+                        {item.data.diagnosedDisease &&
+                          item.data.severity !== "safe" &&
+                          item.data.severity !== "Ongoing" && (
+                            <div className="mt-3 bg-red-50 border border-red-100 p-3 rounded-lg flex items-center gap-3">
+                              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                              <span className="text-xs font-black text-red-600">
+                                DIAGNOSIS: {item.data.diagnosedDisease}
+                              </span>
+                            </div>
+                          )}
                       </div>
                     </div>
                   ))}

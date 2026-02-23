@@ -25,8 +25,12 @@ export default function HealthRecord() {
       const res = await fetch("http://localhost:3001/api/transactions");
       const data = await res.json();
       const txData = Array.isArray(data) ? data : [];
-      setTransactions(txData);
-      processFarmerStats(txData);
+
+      const activeAnimals = txData.filter(
+        (tx) => !["Slaughtered", "Exported"].includes(tx.status),
+      );
+      setTransactions(activeAnimals);
+      processFarmerStats(activeAnimals);
     } catch (err) {
       console.error("Error fetching data:", err);
     } finally {

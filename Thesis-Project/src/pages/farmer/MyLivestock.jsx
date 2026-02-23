@@ -266,13 +266,13 @@ export default function PublicLedger() {
 
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-1 block">
-                Health Condition
+                Initial Health Observation (Farmer's Note)
               </label>
               <textarea
                 name="healthStatus"
                 value={formData.healthStatus}
                 onChange={handleChange}
-                placeholder="Describe health observations..."
+                placeholder="Describe health observations (e.g., Active, eating well, or minor cough...)"
                 rows={3}
                 required
                 className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition resize-none"
@@ -528,22 +528,48 @@ export default function PublicLedger() {
                           </div>
                           <div className="col-span-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
                             <span className="block text-slate-400 uppercase text-[9px] mb-1">
-                              Condition
+                              {/* SMART LABEL: Changes based on Vet verification */}
+                              {!item.data.severity ||
+                              item.data.severity === "Ongoing"
+                                ? "Initial Observation (Farmer)"
+                                : "Official Health Status (Vet)"}
                             </span>
-                            <span className="text-slate-800 italic">
-                              "{item.data.healthStatus}"
+
+                            <span className="text-slate-800">
+                              {/* SMART CONTENT: Shows text note if unverified, shows official status if verified */}
+                              {!item.data.severity ||
+                              item.data.severity === "Ongoing" ? (
+                                <span className="italic text-slate-600">
+                                  "{item.data.healthStatus}"
+                                </span>
+                              ) : item.data.severity === "safe" ? (
+                                <span className="font-bold text-emerald-600">
+                                  ✅ Verified Healthy
+                                </span>
+                              ) : item.data.severity === "mild" ? (
+                                <span className="font-bold text-amber-600">
+                                  ⚠️ Mild Illness
+                                </span>
+                              ) : (
+                                <span className="font-bold text-red-600">
+                                  ⛔ Dangerous Disease
+                                </span>
+                              )}
                             </span>
                           </div>
                         </div>
 
-                        {item.data.diagnosedDisease && (
-                          <div className="mt-3 bg-red-50 border border-red-100 p-3 rounded-lg flex items-center gap-3">
-                            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                            <span className="text-xs font-black text-red-600">
-                              DIAGNOSIS: {item.data.diagnosedDisease}
-                            </span>
-                          </div>
-                        )}
+                        {/* RENDER SPECIFIC DISEASE ONLY IF IT EXISTS AND IS VERIFIED */}
+                        {item.data.diagnosedDisease &&
+                          item.data.severity !== "safe" &&
+                          item.data.severity !== "Ongoing" && (
+                            <div className="mt-3 bg-red-50 border border-red-100 p-3 rounded-lg flex items-center gap-3">
+                              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                              <span className="text-xs font-black text-red-600">
+                                DIAGNOSIS: {item.data.diagnosedDisease}
+                              </span>
+                            </div>
+                          )}
                       </div>
                     </div>
                   ))}

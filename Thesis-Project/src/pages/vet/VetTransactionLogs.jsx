@@ -11,8 +11,9 @@ export default function VetTransactionLogs() {
 
   // FORM STATES
   const [diagnosisForm, setDiagnosisForm] = useState({
-    diagnosis: "",
     severity: "safe",
+    diseasePreset: "", // "African Swine Fever (ASF)", "Avian Influenza", "Foot and Mouth Disease (FMD)", "Other"
+    customDisease: "",
   });
   const [healthLogForm, setHealthLogForm] = useState({
     type: "Vaccination",
@@ -29,7 +30,10 @@ export default function VetTransactionLogs() {
     try {
       const res = await fetch("http://localhost:3001/api/transactions");
       const data = await res.json();
-      setTransactions(data || []);
+      const activeData = (data || []).filter(
+        (tx) => !["Slaughtered", "Exported"].includes(tx.status),
+      );
+      setTransactions(activeData);
     } catch (err) {
       console.error("Failed to fetch transactions:", err);
     } finally {
@@ -50,11 +54,23 @@ export default function VetTransactionLogs() {
   const openModal = (type, tx) => {
     setModalType(type);
     setSelectedTx(tx);
+    // Logic to map existing custom diseases to the dropdown
+    const existingDisease = tx.diagnosedDisease || "";
+    const standardDiseases = [
+      "African Swine Fever (ASF)",
+      "Avian Influenza",
+      "Foot and Mouth Disease (FMD)",
+      "",
+    ];
+    const isStandard = standardDiseases.includes(existingDisease);
+
     // Reset Forms
     setDiagnosisForm({
-      diagnosis: tx.diagnosedDisease || "",
       severity: tx.severity === "Ongoing" ? "safe" : tx.severity,
+      diseasePreset: isStandard ? existingDisease : "Other",
+      customDisease: isStandard ? "" : existingDisease,
     });
+
     setHealthLogForm({
       type: "Vaccination",
       name: "",
@@ -75,6 +91,18 @@ export default function VetTransactionLogs() {
     const currentUser = JSON.parse(storedUser);
 
     if (currentUser.mspId !== "VetMSP") return alert("Access Denied.");
+    // Determine final disease string based on dropdown
+    const finalDisease =
+      diagnosisForm.severity === "safe"
+        ? "None"
+        : diagnosisForm.diseasePreset === "Other"
+          ? diagnosisForm.customDisease
+          : diagnosisForm.diseasePreset;
+
+    // Validation
+    if (diagnosisForm.severity !== "safe" && !finalDisease.trim()) {
+      return alert("Please select or type a specific disease.");
+    }
 
     try {
       const res = await fetch(
@@ -84,8 +112,7 @@ export default function VetTransactionLogs() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             status: "Verified by Vet", // Standardize status
-            diagnosedDisease:
-              diagnosisForm.severity === "safe" ? "" : diagnosisForm.diagnosis,
+            diagnosedDisease: finalDisease,
             severity: diagnosisForm.severity,
             username: currentUser.username,
             mspId: currentUser.mspId,
@@ -206,95 +233,110 @@ export default function VetTransactionLogs() {
               {(activeTab === "pending"
                 ? pendingTransactions
                 : managedTransactions
-              ).map((tx) => (
-                <tr key={tx._id} className="hover:bg-slate-50/80 transition">
-                  <td className="p-4">
-                    <span className="font-mono text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">
-                      {tx.batchId || "LEGACY"}
-                    </span>
-                    <div className="text-xs text-slate-400 mt-1">
-                      {formatDate(tx.timestamp)}
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div className="font-bold text-slate-700">
-                      {tx.fullName}
-                    </div>
-                    <div className="text-xs text-slate-500">{tx.location}</div>
-                  </td>
-                  <td className="p-4">
-                    <span className="font-bold text-slate-800">
-                      {tx.quantity}x {tx.species}
-                    </span>
-                    <div className="text-xs text-slate-500 italic">
-                      "{tx.healthStatus}"
-                    </div>
-                  </td>
-                  <td className="p-4 text-center">
-                    {tx.severity === "safe" && (
-                      <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
-                        Healthy
+              ).map((tx) => {
+                // If it is in any state regarding transfer, lock the buttons.
+                const isLocked = [
+                  "Pending Transfer",
+                  "Pending Regulator Verification",
+                  "Pending Vet Review",
+                ].includes(tx.status);
+
+                return (
+                  <tr key={tx._id} className="hover:bg-slate-50/80 transition">
+                    <td className="p-4">
+                      <span className="font-mono text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">
+                        {tx.batchId || "LEGACY"}
                       </span>
-                    )}
-                    {(tx.severity === "mild" ||
-                      tx.severity === "dangerous") && (
-                      <span className="px-3 py-1 rounded-full bg-red-100 text-red-700 text-xs font-bold">
-                        Sick: {tx.diagnosedDisease}
+                      <div className="text-xs text-slate-400 mt-1">
+                        {formatDate(tx.timestamp)}
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <div className="font-bold text-slate-700">
+                        {tx.fullName}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {tx.location}
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <span className="font-bold text-slate-800">
+                        {tx.quantity}x {tx.species}
                       </span>
-                    )}
-                    {(!tx.severity || tx.severity === "Ongoing") && (
-                      <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">
-                        Unverified
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-4 text-center">
-                    <div className="flex justify-center gap-2">
-                      {activeTab === "pending" ? (
-                        <button
-                          onClick={() => openModal("diagnose", tx)}
-                          className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm transition"
-                        >
-                          Verify & Triage
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => openModal("healthLog", tx)}
-                            className="bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 px-3 py-2 rounded-lg text-xs font-bold transition"
-                          >
-                            + Record
-                          </button>
-                          <button
-                            onClick={() => openModal("update", tx)}
-                            className="bg-slate-100 text-slate-600 hover:bg-slate-200 px-3 py-2 rounded-lg text-xs font-bold transition"
-                          >
-                            Update Status
-                          </button>
-                        </>
+                      <div className="text-xs text-slate-500 italic">
+                        "{tx.healthStatus}"
+                      </div>
+                    </td>
+                    <td className="p-4 text-center">
+                      {tx.severity === "safe" && (
+                        <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
+                          Healthy
+                        </span>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {(activeTab === "pending"
-                ? pendingTransactions
-                : managedTransactions
-              ).length === 0 && (
-                <tr>
-                  <td
-                    colSpan="5"
-                    className="p-8 text-center text-slate-400 italic"
-                  >
-                    No records found in this category.
-                  </td>
-                </tr>
-              )}
+                      {(tx.severity === "mild" ||
+                        tx.severity === "dangerous") && (
+                        <span className="px-3 py-1 rounded-full bg-red-100 text-red-700 text-xs font-bold">
+                          Sick: {tx.diagnosedDisease}
+                        </span>
+                      )}
+                      {(!tx.severity || tx.severity === "Ongoing") && (
+                        <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">
+                          Unverified
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="p-4 text-center">
+                      {/* RENDER LOGIC BASED ON isLocked */}
+                      {isLocked ? (
+                        <div className="relative group inline-block">
+                          <button
+                            disabled
+                            className="cursor-not-allowed bg-slate-100 text-slate-400 px-4 py-2 rounded-lg text-xs font-bold border border-slate-200 flex items-center gap-2"
+                          >
+                            🔒 Locked
+                          </button>
+                          {/* Hover Tooltip */}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-800 text-white text-[10px] p-2 rounded shadow-lg text-center z-10">
+                            Action disabled. This asset is currently undergoing
+                            a Transfer or Exit workflow.
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex justify-center gap-2">
+                          {activeTab === "pending" ? (
+                            <button
+                              onClick={() => openModal("diagnose", tx)}
+                              className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm transition"
+                            >
+                              Verify & Triage
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => openModal("healthLog", tx)}
+                                className="bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 px-3 py-2 rounded-lg text-xs font-bold transition"
+                              >
+                                + Record
+                              </button>
+                              <button
+                                onClick={() => openModal("update", tx)}
+                                className="bg-slate-100 text-slate-600 hover:bg-slate-200 px-3 py-2 rounded-lg text-xs font-bold transition"
+                              >
+                                Update Status
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
       </div>
-
       {/* --- MODAL LOGIC --- */}
       {modalType && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
@@ -329,6 +371,8 @@ export default function VetTransactionLogs() {
                         setDiagnosisForm({
                           ...diagnosisForm,
                           severity: e.target.value,
+                          diseasePreset: "",
+                          customDisease: "",
                         })
                       }
                       className="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 outline-none"
@@ -341,23 +385,90 @@ export default function VetTransactionLogs() {
                     </select>
                   </div>
 
+                  {/* --- DYNAMIC DISEASE DROPDOWN --- */}
                   {diagnosisForm.severity !== "safe" && (
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                        Diagnosed Disease
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g., Swine Flu, ASF, Infection"
-                        value={diagnosisForm.diagnosis}
-                        onChange={(e) =>
-                          setDiagnosisForm({
-                            ...diagnosisForm,
-                            diagnosis: e.target.value,
-                          })
-                        }
-                        className="w-full border border-red-200 bg-red-50 rounded-lg p-3 text-red-700 placeholder-red-300 focus:ring-2 focus:ring-red-500 outline-none"
-                      />
+                    <div className="space-y-4 bg-red-50/50 p-4 rounded-xl border border-red-100">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                          {diagnosisForm.severity === "mild"
+                            ? "Condition Category"
+                            : "Select Disease"}
+                        </label>
+                        <select
+                          value={diagnosisForm.diseasePreset}
+                          onChange={(e) =>
+                            setDiagnosisForm({
+                              ...diagnosisForm,
+                              diseasePreset: e.target.value,
+                            })
+                          }
+                          className="w-full border border-red-200 rounded-lg p-3 text-red-700 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium"
+                        >
+                          <option value="" disabled>
+                            -- Select an Option --
+                          </option>
+
+                          {/* RENDER "MILD" OPTIONS */}
+                          {diagnosisForm.severity === "mild" && (
+                            <>
+                              <option value="Respiratory Infection">
+                                Respiratory Infection
+                              </option>
+                              <option value="Parasitic Infection">
+                                Parasitic Infection (Worms/Ticks)
+                              </option>
+                              <option value="Digestive Issue / Scours">
+                                Digestive Issue / Scours
+                              </option>
+                              <option value="Skin Condition / Mange">
+                                Skin Condition / Mange
+                              </option>
+                              <option value="Physical Injury / Lameness">
+                                Physical Injury / Lameness
+                              </option>
+                            </>
+                          )}
+
+                          {/* RENDER "DANGEROUS" OPTIONS */}
+                          {diagnosisForm.severity === "dangerous" && (
+                            <>
+                              <option value="African Swine Fever (ASF)">
+                                African Swine Fever (ASF)
+                              </option>
+                              <option value="Avian Influenza">
+                                Avian Influenza (Bird Flu)
+                              </option>
+                              <option value="Foot and Mouth Disease (FMD)">
+                                Foot and Mouth Disease (FMD)
+                              </option>
+                            </>
+                          )}
+
+                          {/* "OTHER" IS ALWAYS AVAILABLE */}
+                          <option value="Other">Other (Specify)</option>
+                        </select>
+                      </div>
+
+                      {/* Custom Disease Input (Only shows if "Other" is selected) */}
+                      {diagnosisForm.diseasePreset === "Other" && (
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                            Specify Condition
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Type specific diagnosis..."
+                            value={diagnosisForm.customDisease}
+                            onChange={(e) =>
+                              setDiagnosisForm({
+                                ...diagnosisForm,
+                                customDisease: e.target.value,
+                              })
+                            }
+                            className="w-full border border-red-200 bg-white rounded-lg p-3 text-red-700 placeholder-red-300 focus:ring-2 focus:ring-red-500 outline-none"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
 
