@@ -37,7 +37,8 @@ export default function LandingPage() {
   // Data States
   const [speciesStats, setSpeciesStats] = useState({});
   const [monthlyTrend, setMonthlyTrend] = useState(Array(12).fill(0));
-  const [diseaseStats, setDiseaseStats] = useState({ ASF: 0, "Avian Influenza": 0, "FMD": 0 });
+  // Updated state structure to hold combined health categories
+  const [diseaseStats, setDiseaseStats] = useState({ healthy: 0, mild: 0, dangerous: 0, unverified: 0 });
   const [stakeholderCount, setStakeholderCount] = useState(0);
   const [totalAnimals, setTotalAnimals] = useState(0);
   const [lastSyncTimestamp, setLastSyncTimestamp] = useState(new Date());
@@ -67,7 +68,8 @@ export default function LandingPage() {
       });
 
       const months = Array(12).fill(0);
-      const diseases = { ASF: 0, "Avian Influenza": 0, "FMD": 0 };
+      // Logic change: Initializing combined categories
+      const healthSummary = { healthy: 0, mild: 0, dangerous: 0, unverified: 0 };
       let grandTotal = 0;
 
       transactions.forEach(tx => {
@@ -83,6 +85,17 @@ export default function LandingPage() {
         if (isValidBrgy && !isExternal) {
           grandTotal += qty;
 
+          // Process health summary for the Pie Chart
+          if (sev === "safe" || sev === "healthy") {
+            healthSummary.healthy += qty;
+          } else if (sev === "mild") {
+            healthSummary.mild += qty;
+          } else if (sev === "dangerous") {
+            healthSummary.dangerous += qty;
+          } else {
+            healthSummary.unverified += qty;
+          }
+
           if (stats[spec]) {
             stats[spec].total += qty;
             
@@ -90,11 +103,6 @@ export default function LandingPage() {
               stats[spec].healthy += qty;
             } else if (sev === "mild" || sev === "dangerous" || sev === "sick") {
               stats[spec].sick += qty;
-              
-              if (spec === "Hog") diseases.ASF += qty;
-              else if (spec === "Chicken") diseases["Avian Influenza"] += qty;
-              else if (["Cow", "Sheep", "Goat"].includes(spec)) diseases["FMD"] += qty;
-              
               months[date.getMonth()] += qty;
             } else {
               stats[spec].unverified += qty;
@@ -105,7 +113,7 @@ export default function LandingPage() {
 
       setSpeciesStats(stats);
       setMonthlyTrend(months);
-      setDiseaseStats(diseases);
+      setDiseaseStats(healthSummary);
       setTotalAnimals(grandTotal);
       
       setLastSyncTimestamp(new Date());
@@ -147,9 +155,23 @@ export default function LandingPage() {
   };
 
   if (loading) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-slate-50">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-600 mb-4"></div>
-      <p className="text-green-700 font-bold tracking-widest uppercase text-xs">Syncing Santa Rosa Livestock Ledger...</p>
+    <div className="fixed inset-0 flex items-center justify-center bg-slate-50/30 backdrop-blur-sm z-[1000]">
+      <div className="bg-white/80 p-10 rounded-[2.5rem] shadow-2xl border border-white flex flex-col items-center">
+        <div className="relative w-20 h-20 mb-6">
+          {/* Outer Ring */}
+          <div className="absolute inset-0 rounded-full border-4 border-slate-100"></div>
+          {/* Animated Spinning Circle */}
+          <div className="absolute inset-0 rounded-full border-4 border-t-green-600 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+          {/* Center Pulsing Dot */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-4 h-4 bg-green-500 rounded-full animate-pulse shadow-[0_0_15px_rgba(34,197,94,0.6)]"></div>
+          </div>
+        </div>
+        <h2 className="text-xl font-black text-slate-800 tracking-tight uppercase">System Syncing</h2>
+        <p className="text-slate-500 font-bold text-xs mt-2 tracking-[0.2em] animate-pulse">
+          Fetching ledger data...
+        </p>
+      </div>
     </div>
   );
 
@@ -249,27 +271,43 @@ export default function LandingPage() {
                   <p className="text-2xl font-bold text-gray-900 mt-1">Movement</p>
                 </div>
               </div>
-              <h3 className="text-4xl font-black text-gray-900 mb-5">Livestock Population Census</h3>
+              <h3 className="text-4xl font-black text-gray-900 mb-5">Movement and Population Census</h3>
               <p className="text-gray-600 text-lg mb-8 leading-relaxed">
-                Current registered headcount per species across all barangays. 
-                Helps local authorities monitor population changes, detect unusual patterns, 
-                and plan vaccination & surveillance programs effectively.
+                Real-time tracking of livestock demographics and distribution across Santa Rosa. 
+                By monitoring population shifts and species-specific data, authorities can 
+                optimize resource allocation and ensure precise logistics for city-wide safety programs.
               </p>
-              <div className="h-72 mb-6">
+
+              {/* Multi-colored Bar Chart */}
+              <div className="h-64 mb-6">
                 <Bar 
                   data={{
                     labels: SPECIES_LIST,
                     datasets: [{ 
                       label: "Registered Animals", 
                       data: SPECIES_LIST.map(s => speciesStats[s]?.total || 0), 
-                      backgroundColor: "#16a34a", 
+                      backgroundColor: [
+                        "#f59e0b", // Hog - Amber
+                        "#3b82f6", // Cow - Blue
+                        "#ef4444", // Chicken - Red
+                        "#8b5cf6", // Sheep - Purple
+                        "#10b981"  // Goat - Emerald
+                      ], 
                       borderRadius: 12 
                     }]
                   }} 
                   options={commonOptions} 
                 />
               </div>
+
+              {/* Animal Icon Row */}
+              <div className="flex justify-around items-center bg-slate-50 rounded-2xl py-4 mb-6 border border-slate-100">
+                {["🐖", "🐄", "🐓", "🐑", "🐐"].map((emoji, i) => (
+                  <span key={i} className="text-3xl filter drop-shadow-sm">{emoji}</span>
+                ))}
+              </div>
             </div>
+
             <div className="mt-auto pt-6 border-t border-gray-100">
               <p className="text-sm text-gray-500 mb-4">
                 Data is updated in real-time from field reports and verified entries.
@@ -329,7 +367,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* CARD 3: OUTBREAKS */}
+          {/* CARD 3: OUTBREAKS (UPDATED PIE CHART) */}
           <div className="group bg-white rounded-[3rem] p-10 lg:p-12 shadow border border-gray-100/80 transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 flex flex-col min-h-[720px]">
             <div>
               <div className="flex items-center justify-between mb-10">
@@ -339,19 +377,24 @@ export default function LandingPage() {
                   <p className="text-2xl font-bold text-gray-900 mt-1">Disease Risk</p>
                 </div>
               </div>
-              <h3 className="text-4xl font-black text-gray-900 mb-5">Major Pathogen Distribution</h3>
+              <h3 className="text-4xl font-black text-gray-900 mb-5">Outbreak Statistics & Analytics</h3>
               <p className="text-gray-600 text-lg mb-8 leading-relaxed">
-                Current confirmed cases of priority diseases (ASF, Avian Influenza, FMD). 
-                Enables rapid response planning, targeted surveillance, and containment 
-                strategies to protect Santa Rosa's livestock economy.
+                Real-time tracking of livestock health conditions across Santa Rosa. This data identifies 
+                high-risk areas and severity levels, enabling rapid medical response and targeted 
+                quarantine protocols to maintain city-wide biosecurity.
               </p>
               <div className="h-72 mb-6">
                 <Pie 
                   data={{
-                    labels: ["ASF", "Avian Influenza", "FMD"],
+                    labels: ["Healthy", "Mild Cases", "Dangerous Cases", "Unverified"],
                     datasets: [{ 
-                      data: [diseaseStats.ASF, diseaseStats["Avian Influenza"], diseaseStats.FMD], 
-                      backgroundColor: ["#ef4444", "#f59e0b", "#10b981"], 
+                      data: [
+                        diseaseStats.healthy, 
+                        diseaseStats.mild, 
+                        diseaseStats.dangerous, 
+                        diseaseStats.unverified
+                      ], 
+                      backgroundColor: ["#10b981", "#3b82f6", "#ef4444", "#f59e0b"], 
                       borderWidth: 0 
                     }]
                   }} 
@@ -433,9 +476,6 @@ export default function LandingPage() {
               onClick={() => {
                 // Show toast
                 alert("Coming Soon!\n\nLivestock Disease Prediction feature is under development.\nStay tuned for powerful AI-powered outbreak forecasts!");
-                
-                // Optional: still navigate (comment out if you don't want navigation yet)
-                // navigate("/predictions");
               }} 
               className="px-12 py-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black text-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-xl transform hover:scale-105"
             >

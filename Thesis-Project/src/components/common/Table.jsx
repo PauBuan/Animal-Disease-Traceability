@@ -143,15 +143,26 @@ export default function BarangayHealthTable() {
     window.print();
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-green-600 text-4xl font-black tracking-widest animate-pulse">
-          LOADING...
+  if (loading) return (
+    <div className="fixed inset-0 flex items-center justify-center bg-slate-50/30 backdrop-blur-sm z-[1000]">
+      <div className="bg-white/80 p-10 rounded-[2.5rem] shadow-2xl border border-white flex flex-col items-center">
+        <div className="relative w-20 h-20 mb-6">
+          {/* Outer Ring */}
+          <div className="absolute inset-0 rounded-full border-4 border-slate-100"></div>
+          {/* Animated Spinning Circle */}
+          <div className="absolute inset-0 rounded-full border-4 border-t-green-600 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+          {/* Center Pulsing Dot */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-4 h-4 bg-green-500 rounded-full animate-pulse shadow-[0_0_15px_rgba(34,197,94,0.6)]"></div>
+          </div>
         </div>
+        <h2 className="text-xl font-black text-slate-800 tracking-tight uppercase">System Syncing</h2>
+        <p className="text-slate-500 font-bold text-xs mt-2 tracking-[0.2em] animate-pulse">
+          Fetching Table data...
+        </p>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 py-10 space-y-12 font-sans print:p-8 print:max-w-none bg-slate-50/30">
@@ -278,76 +289,102 @@ export default function BarangayHealthTable() {
 
       {/* Modal – Species Breakdown */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 print:hidden">
-          <div className="bg-white w-full max-w-4xl rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <div className="bg-slate-50 px-8 py-7 flex justify-between items-center border-b border-slate-200">
-              <div>
-                <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight uppercase leading-none">
-                  Species Breakdown
-                </h2>
-                <p className="text-green-600 font-bold text-xs uppercase tracking-[0.2em] mt-2">
-                  {modalTitle}
-                </p>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 print:hidden">
+          <div className="bg-[#F8FAFC] w-full max-w-6xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="bg-white px-10 py-8 flex justify-between items-center border-b border-slate-100">
+              <div className="flex items-center gap-5">
+                <div className="p-4 bg-emerald-600 text-white rounded-2xl text-2xl shadow-lg shadow-emerald-200">
+                  📊
+                </div>
+                <div>
+                  <h2 className="text-3xl font-black text-slate-900 tracking-tight uppercase leading-none">
+                    Species Breakdown
+                  </h2>
+                  <p className="text-emerald-600 font-bold text-xs uppercase tracking-[0.2em] mt-2">
+                    {modalTitle}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-3xl text-slate-400 hover:text-slate-600 transition-colors font-light"
+                className="w-12 h-12 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all text-2xl"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-6 md:p-8 overflow-x-auto">
-              <table className="w-full min-w-[500px]">
-                <thead>
-                  <tr className="text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">
-                    <th className="pb-5 text-left">Animal Type</th>
-                    <th className="pb-5 text-center">Healthy</th>
-                    <th className="pb-5 text-center">Sick</th>
-                    <th className="pb-5 text-center">Unverified</th>
-                    {isCityWideView && (
-                      <>
-                        <th className="pb-5 text-center">Exported</th>
-                        <th className="pb-5 text-center">Slaughtered</th>
-                      </>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 text-slate-700">
-                  {SPECIES_LIST.map(name => (
-                    <tr key={name} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-5 font-bold uppercase text-xs text-slate-500 tracking-wide">{name}</td>
-                      <td className="py-5 text-center text-emerald-600 font-black text-lg">
-                        {currentModalData[name]?.healthy || 0}
-                      </td>
-                      <td className="py-5 text-center text-red-500 font-black text-lg">
-                        {currentModalData[name]?.sick || 0}
-                      </td>
-                      <td className="py-5 text-center text-amber-500 font-black text-lg">
-                        {currentModalData[name]?.unverified || 0}
-                      </td>
+            {/* Modal Body - Scrollable */}
+            <div className="p-8 overflow-y-auto">
+              <div className="grid grid-cols-1 gap-4">
+                {/* Header Row */}
+                <div className="grid grid-cols-12 px-6 mb-2 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">
+                  <div className="col-span-3">Animal Type</div>
+                  <div className="col-span-2 text-center">Healthy</div>
+                  <div className="col-span-2 text-center">Sick</div>
+                  <div className="col-span-2 text-center">Unverified</div>
+                  {isCityWideView && (
+                    <>
+                      <div className="col-span-1.5 text-center">Exported</div>
+                      <div className="col-span-1.5 text-center px-2">Slaughtered</div>
+                    </>
+                  )}
+                </div>
+
+                {/* Species Cards */}
+                {SPECIES_LIST.map(name => {
+                  const icons = { Hog: "🐖", Cow: "🐄", Chicken: "🐓", Sheep: "🐑", Goat: "🐐" };
+                  return (
+                    <div key={name} className="grid grid-cols-12 items-center bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                      <div className="col-span-3 flex items-center gap-4">
+                        <span className="text-3xl leading-none">
+                          {icons[name] || "🐾"}
+                        </span>
+                        <span className="font-black text-slate-700 text-lg uppercase tracking-tight">{name}</span>
+                      </div>
+                      
+                      <div className="col-span-2 flex justify-center">
+                        <div className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl font-black text-xl w-24 text-center">
+                          {currentModalData[name]?.healthy || 0}
+                        </div>
+                      </div>
+
+                      <div className="col-span-2 flex justify-center">
+                        <div className={`${(currentModalData[name]?.sick || 0) > 0 ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-300'} px-4 py-2 rounded-xl font-black text-xl w-24 text-center`}>
+                          {currentModalData[name]?.sick || 0}
+                        </div>
+                      </div>
+
+                      <div className="col-span-2 flex justify-center">
+                        <div className={`${(currentModalData[name]?.unverified || 0) > 0 ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-300'} px-4 py-2 rounded-xl font-black text-xl w-24 text-center`}>
+                          {currentModalData[name]?.unverified || 0}
+                        </div>
+                      </div>
+
                       {isCityWideView && (
                         <>
-                          <td className="py-5 text-center text-blue-500 font-black text-lg">
-                            {currentModalData[name]?.exported || 0}
-                          </td>
-                          <td className="py-5 text-center text-rose-600 font-black text-lg">
-                            {currentModalData[name]?.slaughtered || 0}
-                          </td>
+                          <div className="col-span-1.5 flex justify-center">
+                            <span className="text-blue-600 font-black text-xl">{currentModalData[name]?.exported || 0}</span>
+                          </div>
+                          <div className="col-span-1.5 flex justify-center">
+                            <span className="text-rose-600 font-black text-xl">{currentModalData[name]?.slaughtered || 0}</span>
+                          </div>
                         </>
                       )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="px-8 py-6 bg-slate-50 text-center border-t border-slate-100">
+            {/* Modal Footer */}
+            <div className="px-10 py-8 bg-white border-t border-slate-100 flex justify-end">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="bg-slate-700 hover:bg-slate-800 text-white px-10 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all"
+                className="bg-slate-900 hover:bg-black text-white px-12 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-xl active:scale-95"
               >
-                Close Record
+                Close Dashboard
               </button>
             </div>
           </div>

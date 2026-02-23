@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// Standard Leaflet Icon Fix
+// Leaflet icon fix
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
@@ -36,9 +36,11 @@ export default function AnimalMovement() {
     sick: 0,
     unverified: 0,
     speciesCounts: {},
-    logistics: { exported: 0, slaughtered: 0 }
+    logistics: { exported: 0, slaughtered: 0 },
+    verifiedRatio: "0%"
   });
   const [barangayMapStats, setBarangayMapStats] = useState({});
+  const [topBarangays, setTopBarangays] = useState([]);
 
   const SPECIES_LIST = ["Hog", "Cow", "Chicken", "Sheep", "Goat"];
   const VALID_BARANGAYS = [
@@ -124,148 +126,169 @@ export default function AnimalMovement() {
       }
     });
 
+    const verified = gHealthy + gSick;
+    const verifiedRatio = verified > 0 ? ((verified / (verified + gUnverified)) * 100).toFixed(1) + "%" : "0%";
+
+    const topBrgys = Object.entries(brgyGroup)
+      .sort(([,a], [,b]) => b.total - a.total)
+      .slice(0, 5)
+      .map(([name, data]) => ({ name, ...data }));
+
     setTransactions({
       healthy: gHealthy,
       sick: gSick,
       unverified: gUnverified,
       speciesCounts,
       logistics: { exported: exp, slaughtered: slaught },
+      verifiedRatio,
     });
     setBarangayMapStats(brgyGroup);
+    setTopBarangays(topBrgys);
   };
 
   if (loading) return (
-    <div className="h-screen flex items-center justify-center bg-white text-green-600 font-black text-3xl uppercase">
-      Loading Geo-Data...
+    <div className="fixed inset-0 flex items-center justify-center bg-slate-50/80 backdrop-blur-sm z-50">
+      <div className="bg-white/90 p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 flex flex-col items-center">
+        <div className="relative w-20 h-20 mb-6">
+          <div className="absolute inset-0 rounded-full border-4 border-slate-100"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-t-green-600 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-5 h-5 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-300"></div>
+          </div>
+        </div>
+        <h2 className="text-xl font-black text-slate-800 tracking-tight uppercase">Loading Movement Data</h2>
+        <p className="text-slate-500 font-medium text-sm mt-2 animate-pulse">Fetching blockchain-verified livestock traces...</p>
+      </div>
     </div>
   );
 
   return (
-    <div className="w-full bg-slate-50 min-h-screen pt-24 pb-16 px-8 font-sans relative">
-      <style>
-        {`
-          @media print {
-            .map-container-section { display: none !important; }
-            .sidebar-section { width: 100% !important; border: none !important; box-shadow: none !important; }
-            body { background: white !important; }
-          }
-          .leaflet-container {
-            z-index: 0 !important;
-            height: 100% !important;
-            width: 100% !important;
-          }
-        `}
-      </style>
-
-      {/* Aligns items to the same height */}
-      <div className="max-w-7xl mx-auto flex gap-10 items-stretch">
+    <div className="w-full bg-gradient-to-br from-slate-50 via-green-50/20 to-emerald-50/10 min-h-screen pt-24 pb-16 px-6 lg:px-10 font-sans relative">
+      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 lg:gap-12 items-stretch">
         
         {/* SIDEBAR */}
-        <aside className="sidebar-section w-[420px] bg-white rounded-[2.5rem] border border-slate-200 p-10 shadow-sm sticky top-24 h-fit flex flex-col transition-all z-10">
-          <h1 className="text-4xl font-black text-slate-900 leading-tight">Animal Movement</h1>
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-green-600 mt-3">City of Santa Rosa</p>
+        <aside className="sidebar-section w-full lg:w-[420px] bg-white/95 backdrop-blur-md rounded-[3rem] border border-slate-200/80 p-8 lg:p-10 shadow-xl sticky top-24 h-fit flex flex-col transition-all z-20">
+          <h1 className="text-4xl lg:text-5xl font-black text-slate-900 leading-tight mb-2">Animal Movement</h1>
+          <p className="text-sm font-bold uppercase tracking-[0.25em] text-green-600">Santa Rosa City • Real-Time Traceability</p>
 
+          {/* KPI Grid */}
           <div className="grid grid-cols-2 gap-5 mt-10">
-            <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100 flex flex-col items-center text-center">
-              <p className="text-[10px] font-black uppercase text-emerald-600 mb-2">Healthy Heads</p>
-              <p className="text-4xl font-black text-emerald-700">{transactions.healthy.toLocaleString()}</p>
+            <div className="group bg-gradient-to-br from-emerald-50 to-green-50 p-6 rounded-3xl border border-emerald-100 shadow-md hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col items-center text-center">
+              <p className="text-xs font-black uppercase text-emerald-700 mb-2 tracking-wider">Healthy Livestock</p>
+              <p className="text-4xl lg:text-5xl font-black text-emerald-800">{transactions.healthy.toLocaleString()}</p>
             </div>
-            <div className="bg-red-50/50 p-6 rounded-3xl border border-red-100 flex flex-col items-center text-center">
-              <p className="text-[10px] font-black uppercase text-red-600 mb-2">Sick Heads</p>
-              <p className="text-4xl font-black text-red-600">{transactions.sick.toLocaleString()}</p>
+            <div className="group bg-gradient-to-br from-red-50 to-rose-50 p-6 rounded-3xl border border-red-100 shadow-md hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col items-center text-center">
+              <p className="text-xs font-black uppercase text-red-700 mb-2 tracking-wider">At-Risk Livestock</p>
+              <p className="text-4xl lg:text-5xl font-black text-red-800">{transactions.sick.toLocaleString()}</p>
             </div>
           </div>
 
-          <div className="mt-8 bg-slate-50 rounded-3xl p-6 border border-slate-100 space-y-4">
-            <div className="flex justify-between items-center px-2">
-              <span className="text-slate-500 font-bold text-sm uppercase tracking-wider">Exported</span>
+          {/* Logistics + Verified Ratio */}
+          <div className="mt-8 bg-slate-50/80 rounded-3xl p-6 border border-slate-200 space-y-5">
+            <div className="flex justify-between items-center px-3 py-2 bg-white/60 rounded-xl">
+              <span className="text-slate-600 font-semibold text-sm uppercase tracking-wider">Exported</span>
               <span className="text-xl font-black text-slate-800">{transactions.logistics.exported.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between items-center px-2 pt-4 border-t border-slate-200">
-              <span className="text-red-700 font-black text-sm uppercase tracking-wider">Slaughtered</span>
-              <span className="text-xl font-black text-red-700">{transactions.logistics.slaughtered.toLocaleString()}</span>
+            <div className="flex justify-between items-center px-3 py-2 bg-white/60 rounded-xl">
+              <span className="text-red-700 font-semibold text-sm uppercase tracking-wider">Slaughtered</span>
+              <span className="text-xl font-black text-red-800">{transactions.logistics.slaughtered.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center px-3 py-2 bg-white/60 rounded-xl">
+              <span className="text-indigo-700 font-semibold text-sm uppercase tracking-wider">Verified Ratio</span>
+              <span className="text-xl font-black text-indigo-800">{transactions.verifiedRatio}</span>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 mt-8 shadow-sm">
-            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 text-center">Species Registry</h3>
-            <div className="h-44">
+          {/* Species Bar Chart with updated Colors */}
+          <div className="bg-white rounded-3xl border border-slate-200 mt-8 p-6 shadow-sm">
+            <h3 className="text-base font-black uppercase tracking-widest text-slate-500 mb-6 text-center">Livestock Species Distribution</h3>
+            <div className="h-56">
               <Bar
                 data={{
                   labels: SPECIES_LIST,
                   datasets: [{
                     data: SPECIES_LIST.map(s => transactions.speciesCounts[s] || 0),
-                    backgroundColor: "#10b981",
-                    borderRadius: 8,
-                  }],
+                    backgroundColor: [
+                      "#f59e0b", // Hog - Amber
+                      "#3b82f6", // Cow - Blue
+                      "#ef4444", // Chicken - Red
+                      "#8b5cf6", // Sheep - Purple
+                      "#10b981"  // Goat - Emerald
+                    ],
+                    borderRadius: 12,
+                    hoverBackgroundColor: [
+                      "#d97706",
+                      "#2563eb",
+                      "#dc2626",
+                      "#7c3aed",
+                      "#059669"
+                    ]
+                  }]
                 }}
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
                   plugins: { legend: { display: false } },
                   scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 11, weight: 'bold' }, color: '#64748b' } },
-                    y: { display: false },
-                  },
+                    x: { grid: { display: false }, ticks: { font: { size: 12, weight: 'bold' }, color: '#475569' } },
+                    y: { display: false }
+                  }
                 }}
               />
             </div>
           </div>
 
+          {/* Action Buttons */}
           <div className="mt-10 space-y-4">
-            <button onClick={() => window.print()} className="w-full bg-slate-900 hover:bg-black text-white py-5 rounded-2xl font-black uppercase text-sm tracking-widest transition-all shadow-lg active:scale-95">
-              Download / Print Report
+            <button onClick={() => window.print()} className="w-full bg-gradient-to-r from-slate-900 to-slate-800 hover:from-black hover:to-black text-white py-5 rounded-2xl font-black uppercase text-sm tracking-widest transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02]">
+              Download Movement Report
             </button>
-            <button onClick={() => navigate("/home")} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 py-5 rounded-2xl font-black uppercase text-sm tracking-widest transition-all">
-              ← Return to Home
+            <button onClick={() => navigate("/home")} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-5 rounded-2xl font-black uppercase text-sm tracking-widest transition-all">
+              ← Return to Dashboard
             </button>
           </div>
         </aside>
 
-        {/* MAP SECTION: Forced to stretch height */}
-        <div className="flex-1 map-container-section relative z-0 flex">
-          <div className="bg-white rounded-[3.5rem] border border-slate-200 shadow-xl p-10 flex flex-col w-full h-auto min-h-[750px]">
+        {/* MAP + TOP BARANGAYS */}
+        <div className="flex-1 flex flex-col gap-8">
+          <div className="group bg-white rounded-[3.5rem] border border-slate-200 shadow-xl p-8 lg:p-10 flex flex-col flex-grow min-h-[750px] transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 relative z-0">
             <div className="mb-8 px-2">
-              <h2 className="text-3xl font-black text-slate-800">Geographic Heatmap</h2>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] mt-1">Movement Statistics per Barangay</p>
+              <h2 className="text-4xl font-black text-slate-900">Livestock Geographic Heatmap</h2>
+              <p className="text-sm font-bold text-slate-500 uppercase tracking-[0.25em] mt-2">
+                Real-Time Movement & Health by Barangay
+              </p>
             </div>
-            
-            {/* Map Container now fills the remaining space of the card */}
-            <div className="rounded-[2.5rem] overflow-hidden border border-slate-200 shadow-inner relative z-0 flex-grow">
-              <MapContainer 
-                center={[14.28, 121.09]} 
-                zoom={13} 
-                zoomControl={false} 
-                style={{ height: "100%", width: "100%", position: "absolute", top: 0, bottom: 0 }}
+
+            {/* FIXED OVERLAY: Added z-0 to the map container specifically */}
+            <div className="rounded-[2.5rem] overflow-hidden border border-slate-200 shadow-inner flex-grow relative z-0">
+              <MapContainer
+                center={[14.28, 121.09]}
+                zoom={13}
+                zoomControl={false}
+                style={{ height: "100%", width: "100%", zIndex: 0 }}
               >
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                
                 {barangayMarkers.map((brgy) => {
                   const stats = barangayMapStats[brgy.name] || { total: 0, healthy: 0, sick: 0, unverified: 0 };
-                  
                   return (
                     <Marker key={brgy.name} position={brgy.pos}>
-                      <MapTooltip direction="top" offset={[0, -32]} opacity={1}>
-                        <div className="font-sans p-3 min-w-[160px]">
-                          <p className="font-black text-slate-900 uppercase text-sm border-b-2 border-slate-100 pb-2 mb-3">
+                      <MapTooltip direction="top" offset={[0, -32]} opacity={0.95}>
+                        <div className="font-sans p-4 min-w-[220px] bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200">
+                          <p className="font-black text-slate-900 uppercase text-base border-b border-slate-200 pb-3 mb-3">
                             Brgy {brgy.name}
                           </p>
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-xs">
-                              <span className="text-slate-500 font-bold">Healthy:</span>
-                              <span className="font-black text-emerald-600">{stats.healthy}</span>
+                          <div className="space-y-3 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-slate-600 font-medium">Healthy:</span>
+                              <span className="font-bold text-emerald-700">{stats.healthy.toLocaleString()}</span>
                             </div>
-                            <div className="flex justify-between text-xs">
-                              <span className="text-slate-500 font-bold">Unverified:</span>
-                              <span className="font-black text-amber-500">{stats.unverified}</span>
+                            <div className="flex justify-between">
+                              <span className="text-slate-600 font-medium">Sick:</span>
+                              <span className="font-bold text-red-700">{stats.sick.toLocaleString()}</span>
                             </div>
-                            <div className="flex justify-between text-xs">
-                              <span className="text-slate-500 font-bold">Sick:</span>
-                              <span className="font-black text-red-600">{stats.sick}</span>
-                            </div>
-                            <div className="flex justify-between text-sm pt-2 border-t border-slate-100 mt-2">
-                              <span className="font-black text-slate-400 uppercase text-[10px]">Total Heads:</span>
-                              <span className="font-black text-slate-900">{stats.total}</span>
+                            <div className="flex justify-between pt-3 border-t border-slate-200">
+                              <span className="font-bold text-slate-700 uppercase text-xs">Total:</span>
+                              <span className="font-black text-slate-900 text-lg">{stats.total.toLocaleString()}</span>
                             </div>
                           </div>
                         </div>
@@ -275,6 +298,34 @@ export default function AnimalMovement() {
                 })}
                 <ZoomControl position="bottomright" />
               </MapContainer>
+            </div>
+          </div>
+
+          {/* Top Barangays Dashboard */}
+          <div className="bg-white rounded-[3rem] border border-slate-200 shadow-xl p-8 lg:p-10">
+            <h3 className="text-2xl font-black text-slate-900 mb-6 tracking-tight">
+              Top Movement Activity Barangays
+            </h3>
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
+              {topBarangays.map((brgy) => (
+                <div 
+                  key={brgy.name}
+                  className="flex justify-between items-center bg-slate-50 p-6 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-all hover:shadow-md"
+                >
+                  <div>
+                    <p className="font-bold text-slate-900 text-lg">Brgy {brgy.name}</p>
+                    <p className="text-sm text-slate-600">
+                      {brgy.sick > 0 ? (
+                        <span className="text-red-600 font-bold">{brgy.sick.toLocaleString()} at risk</span>
+                      ) : "All healthy"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-3xl font-black text-slate-900">{brgy.total.toLocaleString()}</p>
+                    <p className="text-xs text-slate-500 uppercase tracking-wider">Total Heads</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
