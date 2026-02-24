@@ -127,7 +127,7 @@ export default function AnimalMovement() {
     });
 
     const verified = gHealthy + gSick;
-    const verifiedRatio = verified > 0 ? ((verified / (verified + gUnverified)) * 100).toFixed(1) + "%" : "0%";
+    const verifiedRatio = (verified + gUnverified) > 0 ? ((verified / (verified + gUnverified)) * 100).toFixed(1) + "%" : "0%";
 
     const topBrgys = Object.entries(brgyGroup)
       .sort(([,a], [,b]) => b.total - a.total)
@@ -149,15 +149,7 @@ export default function AnimalMovement() {
   if (loading) return (
     <div className="fixed inset-0 flex items-center justify-center bg-slate-50/80 backdrop-blur-sm z-50">
       <div className="bg-white/90 p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 flex flex-col items-center">
-        <div className="relative w-20 h-20 mb-6">
-          <div className="absolute inset-0 rounded-full border-4 border-slate-100"></div>
-          <div className="absolute inset-0 rounded-full border-4 border-t-green-600 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-5 h-5 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-300"></div>
-          </div>
-        </div>
         <h2 className="text-xl font-black text-slate-800 tracking-tight uppercase">Loading Movement Data</h2>
-        <p className="text-slate-500 font-medium text-sm mt-2 animate-pulse">Fetching blockchain-verified livestock traces...</p>
       </div>
     </div>
   );
@@ -171,35 +163,37 @@ export default function AnimalMovement() {
           <h1 className="text-4xl lg:text-5xl font-black text-slate-900 leading-tight mb-2">Animal Movement</h1>
           <p className="text-sm font-bold uppercase tracking-[0.25em] text-green-600">Santa Rosa City • Real-Time Traceability</p>
 
-          {/* KPI Grid */}
-          <div className="grid grid-cols-2 gap-5 mt-10">
-            <div className="group bg-gradient-to-br from-emerald-50 to-green-50 p-6 rounded-3xl border border-emerald-100 shadow-md hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col items-center text-center">
-              <p className="text-xs font-black uppercase text-emerald-700 mb-2 tracking-wider">Healthy Livestock</p>
-              <p className="text-4xl lg:text-5xl font-black text-emerald-800">{transactions.healthy.toLocaleString()}</p>
+          <div className="grid grid-cols-1 gap-4 mt-10 sm:grid-cols-3">
+            <div className="bg-emerald-50 p-4 rounded-3xl border border-emerald-100 text-center">
+              <p className="text-[10px] font-black uppercase text-emerald-700 mb-1">Healthy</p>
+              <p className="text-2xl font-black text-emerald-800">{transactions.healthy.toLocaleString()}</p>
             </div>
-            <div className="group bg-gradient-to-br from-red-50 to-rose-50 p-6 rounded-3xl border border-red-100 shadow-md hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col items-center text-center">
-              <p className="text-xs font-black uppercase text-red-700 mb-2 tracking-wider">At-Risk Livestock</p>
-              <p className="text-4xl lg:text-5xl font-black text-red-800">{transactions.sick.toLocaleString()}</p>
+            <div className="bg-red-50 p-4 rounded-3xl border border-red-100 text-center">
+              <p className="text-[10px] font-black uppercase text-red-700 mb-1">At-Risk</p>
+              <p className="text-2xl font-black text-red-800">{transactions.sick.toLocaleString()}</p>
             </div>
-          </div>
-
-          {/* Logistics + Verified Ratio */}
-          <div className="mt-8 bg-slate-50/80 rounded-3xl p-6 border border-slate-200 space-y-5">
-            <div className="flex justify-between items-center px-3 py-2 bg-white/60 rounded-xl">
-              <span className="text-slate-600 font-semibold text-sm uppercase tracking-wider">Exported</span>
-              <span className="text-xl font-black text-slate-800">{transactions.logistics.exported.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center px-3 py-2 bg-white/60 rounded-xl">
-              <span className="text-red-700 font-semibold text-sm uppercase tracking-wider">Slaughtered</span>
-              <span className="text-xl font-black text-red-800">{transactions.logistics.slaughtered.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between items-center px-3 py-2 bg-white/60 rounded-xl">
-              <span className="text-indigo-700 font-semibold text-sm uppercase tracking-wider">Verified Ratio</span>
-              <span className="text-xl font-black text-indigo-800">{transactions.verifiedRatio}</span>
+            <div className="bg-amber-50 p-4 rounded-3xl border border-amber-100 text-center">
+              <p className="text-[10px] font-black uppercase text-amber-700 mb-1">Pending</p>
+              <p className="text-2xl font-black text-amber-800">{transactions.unverified.toLocaleString()}</p>
             </div>
           </div>
 
-          {/* Species Bar Chart with updated Colors */}
+          <div className="mt-8 bg-slate-50/80 rounded-3xl p-6 border border-slate-200 space-y-3">
+            <div className="flex justify-between items-center px-3 py-2 bg-white/60 rounded-xl text-xs font-bold uppercase text-slate-600">
+              <span>Exported</span>
+              <span className="text-lg text-slate-800">{transactions.logistics.exported.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center px-3 py-2 bg-white/60 rounded-xl text-xs font-bold uppercase text-red-700">
+              <span>Slaughtered</span>
+              <span className="text-lg text-red-800">{transactions.logistics.slaughtered.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center px-3 py-2 bg-white/60 rounded-xl text-xs font-bold uppercase text-amber-600">
+              <span>Verified Ratio</span>
+              <span className="text-lg text-amber-700">{transactions.verifiedRatio}</span>
+            </div>
+          </div>
+
+          {/* RESTORED: Species Bar Chart */}
           <div className="bg-white rounded-3xl border border-slate-200 mt-8 p-6 shadow-sm">
             <h3 className="text-base font-black uppercase tracking-widest text-slate-500 mb-6 text-center">Livestock Species Distribution</h3>
             <div className="h-56">
@@ -208,21 +202,9 @@ export default function AnimalMovement() {
                   labels: SPECIES_LIST,
                   datasets: [{
                     data: SPECIES_LIST.map(s => transactions.speciesCounts[s] || 0),
-                    backgroundColor: [
-                      "#f59e0b", // Hog - Amber
-                      "#3b82f6", // Cow - Blue
-                      "#ef4444", // Chicken - Red
-                      "#8b5cf6", // Sheep - Purple
-                      "#10b981"  // Goat - Emerald
-                    ],
+                    backgroundColor: ["#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6", "#10b981"],
                     borderRadius: 12,
-                    hoverBackgroundColor: [
-                      "#d97706",
-                      "#2563eb",
-                      "#dc2626",
-                      "#7c3aed",
-                      "#059669"
-                    ]
+                    hoverBackgroundColor: ["#d97706", "#2563eb", "#dc2626", "#7c3aed", "#059669"]
                   }]
                 }}
                 options={{
@@ -238,28 +220,26 @@ export default function AnimalMovement() {
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="mt-10 space-y-4">
-            <button onClick={() => window.print()} className="w-full bg-gradient-to-r from-slate-900 to-slate-800 hover:from-black hover:to-black text-white py-5 rounded-2xl font-black uppercase text-sm tracking-widest transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02]">
+            <button onClick={() => window.print()} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase text-sm tracking-widest transition-all shadow-lg hover:shadow-xl">
               Download Movement Report
             </button>
-            <button onClick={() => navigate("/home")} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-5 rounded-2xl font-black uppercase text-sm tracking-widest transition-all">
-              ← Return to Dashboard
+            <button onClick={() => navigate("/home")} className="w-full bg-slate-100 text-slate-700 py-5 rounded-2xl font-black uppercase text-sm tracking-widest transition-all">
+              Return to Dashboard
             </button>
           </div>
         </aside>
 
         {/* MAP + TOP BARANGAYS */}
         <div className="flex-1 flex flex-col gap-8">
-          <div className="group bg-white rounded-[3.5rem] border border-slate-200 shadow-xl p-8 lg:p-10 flex flex-col flex-grow min-h-[750px] transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 relative z-0">
+          <div className="group bg-white rounded-[3.5rem] border border-slate-200 shadow-xl p-8 lg:p-10 flex flex-col flex-grow min-h-[750px] relative z-0">
             <div className="mb-8 px-2">
               <h2 className="text-4xl font-black text-slate-900">Livestock Geographic Heatmap</h2>
               <p className="text-sm font-bold text-slate-500 uppercase tracking-[0.25em] mt-2">
-                Real-Time Movement & Health by Barangay
+                Real-Time Health Monitoring
               </p>
             </div>
 
-            {/* FIXED OVERLAY: Added z-0 to the map container specifically */}
             <div className="rounded-[2.5rem] overflow-hidden border border-slate-200 shadow-inner flex-grow relative z-0">
               <MapContainer
                 center={[14.28, 121.09]}
@@ -273,22 +253,26 @@ export default function AnimalMovement() {
                   return (
                     <Marker key={brgy.name} position={brgy.pos}>
                       <MapTooltip direction="top" offset={[0, -32]} opacity={0.95}>
-                        <div className="font-sans p-4 min-w-[220px] bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200">
-                          <p className="font-black text-slate-900 uppercase text-base border-b border-slate-200 pb-3 mb-3">
+                        <div className="font-sans p-4 min-w-[220px] bg-white rounded-xl shadow-lg border border-slate-200">
+                          <p className="font-black text-slate-900 uppercase text-sm border-b border-slate-200 pb-2 mb-2">
                             Brgy {brgy.name}
                           </p>
-                          <div className="space-y-3 text-sm">
+                          <div className="space-y-2 text-[11px]">
                             <div className="flex justify-between">
-                              <span className="text-slate-600 font-medium">Healthy:</span>
-                              <span className="font-bold text-emerald-700">{stats.healthy.toLocaleString()}</span>
+                              <span className="text-slate-500 font-bold uppercase">Healthy:</span>
+                              <span className="font-black text-emerald-700">{stats.healthy.toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-slate-600 font-medium">Sick:</span>
-                              <span className="font-bold text-red-700">{stats.sick.toLocaleString()}</span>
+                              <span className="text-slate-500 font-bold uppercase">Sick:</span>
+                              <span className="font-black text-red-700">{stats.sick.toLocaleString()}</span>
                             </div>
-                            <div className="flex justify-between pt-3 border-t border-slate-200">
-                              <span className="font-bold text-slate-700 uppercase text-xs">Total:</span>
-                              <span className="font-black text-slate-900 text-lg">{stats.total.toLocaleString()}</span>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500 font-bold uppercase">Unverified:</span>
+                              <span className="font-black text-amber-600">{stats.unverified.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between pt-2 border-t border-slate-200 mt-1">
+                              <span className="font-black text-slate-700 uppercase">Total:</span>
+                              <span className="font-black text-slate-900 text-sm">{stats.total.toLocaleString()}</span>
                             </div>
                           </div>
                         </div>
@@ -301,10 +285,9 @@ export default function AnimalMovement() {
             </div>
           </div>
 
-          {/* Top Barangays Dashboard */}
           <div className="bg-white rounded-[3rem] border border-slate-200 shadow-xl p-8 lg:p-10">
             <h3 className="text-2xl font-black text-slate-900 mb-6 tracking-tight">
-              Top Movement Activity Barangays
+              Top 5 Movement Activity Barangays
             </h3>
             <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
               {topBarangays.map((brgy) => (
