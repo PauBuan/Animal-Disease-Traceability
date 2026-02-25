@@ -20,6 +20,7 @@ export default function VetTransactionLogs() {
     name: "",
     notes: "",
     nextDueDate: "",
+    proofFile: null,
   });
 
   useEffect(() => {
@@ -145,21 +146,27 @@ export default function VetTransactionLogs() {
     const currentUser = JSON.parse(storedUser);
 
     try {
-      const payload = {
-        batchId: selectedTx.batchId || selectedTx._id, // Smart Fallback
-        type: healthLogForm.type,
-        name: healthLogForm.name,
-        notes: healthLogForm.notes,
-        nextDueDate: healthLogForm.nextDueDate,
-        vetUsername: currentUser.username,
-        mspId: currentUser.mspId,
-        status: "Valid",
-      };
+      // Use FormData instead of JSON to handle the file
+      const formData = new FormData();
+      formData.append("batchId", selectedTx.batchId || selectedTx._id);
+      formData.append("type", healthLogForm.type);
+      formData.append("name", healthLogForm.name);
+      formData.append("notes", healthLogForm.notes);
+      formData.append("nextDueDate", healthLogForm.nextDueDate);
+      formData.append("vetUsername", currentUser.username);
+      formData.append("mspId", currentUser.mspId);
+      formData.append("status", "Valid");
+
+      // Append the file if it exists
+      if (healthLogForm.proofFile) {
+        formData.append("proofFile", healthLogForm.proofFile);
+      }
 
       const res = await fetch("http://localhost:3001/api/health-records", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        // Do NOT set Content-Type to application/json.
+        // Fetch will automatically set it to multipart/form-data when using FormData.
+        body: formData,
       });
 
       if (!res.ok) throw new Error("Failed to save health record");
@@ -499,13 +506,12 @@ export default function VetTransactionLogs() {
                             type: e.target.value,
                           })
                         }
-                        className="w-full border border-slate-300 rounded-lg p-2 text-sm"
+                        className="w-full border border-slate-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700"
                       >
                         <option>Vaccination</option>
                         <option>Deworming</option>
                         <option>Lab Test</option>
                         <option>Vitamin</option>
-                        <option>VHC Issuance</option>
                       </select>
                     </div>
                     <div>
@@ -521,7 +527,7 @@ export default function VetTransactionLogs() {
                             nextDueDate: e.target.value,
                           })
                         }
-                        className="w-full border border-slate-300 rounded-lg p-2 text-sm"
+                        className="w-full border border-slate-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700"
                       />
                     </div>
                   </div>
@@ -540,7 +546,7 @@ export default function VetTransactionLogs() {
                           name: e.target.value,
                         })
                       }
-                      className="w-full border border-slate-300 rounded-lg p-3 outline-none focus:border-blue-500"
+                      className="w-full border border-slate-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
                     />
                   </div>
 
@@ -557,13 +563,65 @@ export default function VetTransactionLogs() {
                           notes: e.target.value,
                         })
                       }
-                      className="w-full border border-slate-300 rounded-lg p-3 text-sm h-20 resize-none outline-none focus:border-blue-500"
+                      className="w-full border border-slate-300 rounded-lg p-3 h-20 resize-none outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
                     />
+                  </div>
+                  <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                    <label className="block text-xs font-bold text-blue-600 uppercase mb-2">
+                      Upload Proof (Optional)
+                    </label>
+                    <div className="flex items-center justify-center w-full">
+                      <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-blue-200 border-dashed rounded-lg cursor-pointer bg-white hover:bg-blue-50 transition-colors">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          <svg
+                            className="w-6 h-6 mb-2 text-blue-400"
+                            aria-hidden="true"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 20 16"
+                          >
+                            <path
+                              stroke="currentColor"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+                            />
+                          </svg>
+                          <p className="mb-1 text-xs text-slate-500">
+                            <span className="font-bold text-blue-600">
+                              Click to upload
+                            </span>{" "}
+                            or drag and drop
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            PDF, PNG, or JPG (MAX. 5MB)
+                          </p>
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*,.pdf"
+                          onChange={(e) =>
+                            setHealthLogForm({
+                              ...healthLogForm,
+                              proofFile: e.target.files[0],
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    {/* Show selected file name */}
+                    {healthLogForm.proofFile && (
+                      <p className="text-xs text-emerald-600 font-bold mt-2 text-center flex items-center justify-center gap-1">
+                        ✅ {healthLogForm.proofFile.name}
+                      </p>
+                    )}
                   </div>
 
                   <button
                     onClick={handleHealthLogSubmit}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl mt-4"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-wider py-4 rounded-xl mt-2 shadow-lg shadow-blue-200 transition-all active:scale-[0.98]"
                   >
                     Save to Digital Log
                   </button>

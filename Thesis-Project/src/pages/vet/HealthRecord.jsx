@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import MedicalLogModal from "../../components/common/MedicalLogModal";
 
 export default function HealthRecord() {
   const [transactions, setTransactions] = useState([]);
@@ -292,72 +293,13 @@ export default function HealthRecord() {
       )}
 
       {/* === LEVEL 2 MODAL: MEDICAL HISTORY === */}
-      {showHealthModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
-          <div className="bg-white rounded-[2rem] w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col shadow-2xl animate-in slide-in-from-bottom-10 duration-200">
-            <div className="p-6 border-b border-blue-100 bg-blue-50 flex justify-between items-center">
-              <div>
-                <h3 className="font-black text-xl text-blue-900">
-                  Medical History
-                </h3>
-                <p className="text-xs font-bold text-blue-400 uppercase tracking-wider">
-                  {selectedAnimal?.batchId || "Legacy Record"}
-                </p>
-              </div>
-              <button
-                onClick={() => setShowHealthModal(false)}
-                className="text-blue-300 hover:text-blue-600 font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto bg-white">
-              {healthLoading ? (
-                <div className="text-center py-10 text-gray-400">
-                  Fetching records...
-                </div>
-              ) : healthLogs.length === 0 ? (
-                <div className="text-center py-10">
-                  <div className="text-4xl mb-2">📋</div>
-                  <p className="text-gray-500 font-bold">No Records Found</p>
-                  <p className="text-xs text-gray-400">
-                    No vaccines or tests have been logged.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {healthLogs.map((log, idx) => (
-                    <div
-                      key={idx}
-                      className="border border-slate-100 p-4 rounded-xl hover:border-blue-200 transition"
-                    >
-                      <div className="flex justify-between mb-2">
-                        <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded uppercase">
-                          {log.type}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          {formatDate(log.date)}
-                        </span>
-                      </div>
-                      <h4 className="font-bold text-gray-800">{log.name}</h4>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Vet:{" "}
-                        <span className="font-semibold">{log.vetUsername}</span>
-                      </p>
-                      {log.notes && (
-                        <div className="mt-3 bg-gray-50 p-2 rounded text-xs text-gray-600 italic">
-                          "{log.notes}"
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <MedicalLogModal
+        isOpen={showHealthModal}
+        onClose={() => setShowHealthModal(false)}
+        healthLoading={healthLoading}
+        healthLogs={healthLogs}
+        selectedAnimal={selectedAnimal}
+      />
     </div>
   );
 }

@@ -6,7 +6,7 @@ export default function Logistics() {
   const [outgoing, setOutgoing] = useState([]);
   const [incoming, setIncoming] = useState([]);
 
-  // FILE UPLOAD STATE
+  // FILE UPLOAD STATE (For Senders - Exit Proofs & PODs)
   const fileInputRef = useRef(null);
   const [uploadingId, setUploadingId] = useState(null);
 
@@ -36,7 +36,9 @@ export default function Logistics() {
 
   const fetchInventory = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/api/transactions/${currentUser}`);
+      const res = await fetch(
+        `http://localhost:3001/api/transactions/${currentUser}`,
+      );
       const data = await res.json();
       setAnimals(data || []);
     } catch (err) {
@@ -46,7 +48,9 @@ export default function Logistics() {
 
   const fetchMovements = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/api/transfers/${currentUser}`);
+      const res = await fetch(
+        `http://localhost:3001/api/transfers/${currentUser}`,
+      );
       const data = await res.json();
       const out = data.filter((r) => r.farmerUsername === currentUser);
       const inc = data.filter((r) => r.receiverUsername === currentUser);
@@ -57,6 +61,7 @@ export default function Logistics() {
     }
   };
 
+  // --- SENDER UPLOADING PROOF (Internal POD or External Exit) ---
   const triggerFileUpload = (requestId) => {
     setUploadingId(requestId);
     fileInputRef.current.click();
@@ -65,19 +70,24 @@ export default function Logistics() {
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file || !uploadingId) return;
-    const fakeUrl = `http://cloud-storage.com/uploads/${encodeURIComponent(file.name)}`;
+
+    const fd = new FormData();
+    fd.append("requestId", uploadingId);
+    fd.append("proofFile", file);
 
     try {
-      const res = await fetch("http://localhost:3001/api/transfers/upload-proof", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId: uploadingId, proofUrl: fakeUrl }),
-      });
+      const res = await fetch(
+        "http://localhost:3001/api/transfers/upload-proof",
+        {
+          method: "POST",
+          body: fd,
+        },
+      );
+      const resData = await res.json();
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Upload failed");
+        throw new Error(resData.error || "Upload failed");
       }
-      alert(`File "${file.name}" uploaded successfully! Sent to Regulator.`);
+      alert(resData.message);
       fetchMovements();
     } catch (err) {
       alert("Error: " + err.message);
@@ -87,6 +97,40 @@ export default function Logistics() {
     }
   };
 
+  // --- RECEIVER CONFIRMING RECEIPT (Re-Added Function) ---
+  const handleReceive = async (requestId) => {
+    if (
+      !confirm(
+        "Confirm receipt? This will transfer ownership to you on the Blockchain.",
+      )
+    )
+      return;
+
+    try {
+      const res = await fetch(
+        "http://localhost:3001/api/transfers/receiver-confirm",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ requestId, userMsp: "FarmerMSP" }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to receive");
+      }
+
+      alert("Transfer Successful! Animal is now in your inventory.");
+      fetchMovements();
+      fetchInventory();
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  };
+
+  // --- SENDER SUBMITTING NEW REQUEST ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedBatch) return alert("Please select an animal batch");
@@ -95,8 +139,14 @@ export default function Logistics() {
       batchId: selectedBatch,
       farmerUsername: currentUser,
       destinationType: formData.destinationType,
-      receiverUsername: formData.destinationType === "Internal" ? formData.receiverUsername : null,
-      receiverDetails: formData.destinationType !== "Internal" ? { name: formData.receiverName, address: formData.receiverAddress } : null,
+      receiverUsername:
+        formData.destinationType === "Internal"
+          ? formData.receiverUsername
+          : null,
+      receiverDetails:
+        formData.destinationType !== "Internal"
+          ? { name: formData.receiverName, address: formData.receiverAddress }
+          : null,
       purpose: formData.purpose,
       transportDate: formData.transportDate,
     };
@@ -119,35 +169,22 @@ export default function Logistics() {
     }
   };
 
-  const handleReceive = async (requestId) => {
-    if (!confirm("Confirm receipt? This will transfer ownership on the Blockchain.")) return;
-    try {
-      const res = await fetch("http://localhost:3001/api/transfers/receiver-confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId, userMsp: "FarmerMSP" }),
-      });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to receive");
-      }
-      alert("Transfer Successful! Animal is now in your inventory.");
-      fetchMovements();
-      fetchInventory();
-    } catch (err) {
-      alert("Error: " + err.message);
-    }
-  };
-
   const StatusBadge = ({ status }) => {
     let color = "bg-slate-100 text-slate-600 border-slate-200";
-    if (status === "Pending Vet Review") color = "bg-amber-100 text-amber-700 border-amber-200";
-    if (status === "Approved (VHC Issued)") color = "bg-blue-100 text-blue-700 border-blue-200 animate-pulse";
-    if (status.includes("Completed")) color = "bg-emerald-100 text-emerald-700 border-emerald-200";
+    if (status === "Pending Vet Review")
+      color = "bg-amber-100 text-amber-700 border-amber-200";
+    if (status === "Approved (VHC Issued)")
+      color = "bg-blue-100 text-blue-700 border-blue-200 animate-pulse";
+    if (status.includes("Completed"))
+      color = "bg-emerald-100 text-emerald-700 border-emerald-200";
     if (status === "Rejected") color = "bg-red-100 text-red-700 border-red-200";
+    if (status === "Pending Regulator Verification")
+      color = "bg-purple-100 text-purple-700 border-purple-200";
 
     return (
-      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${color}`}>
+      <span
+        className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${color}`}
+      >
         {status}
       </span>
     );
@@ -164,14 +201,23 @@ export default function Logistics() {
         </p>
       </header>
 
-      <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,.pdf" />
+      {/* Hidden File Input for Senders */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        accept="image/*,.pdf"
+      />
 
       {/* TABS MENU */}
       <div className="flex gap-2 mb-12 bg-white p-2 rounded-2xl w-fit border border-slate-200 shadow-md">
         <button
           onClick={() => setActiveTab("apply")}
           className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${
-            activeTab === "apply" ? "bg-[var(--green)] text-white shadow-lg scale-105" : "text-slate-500 hover:bg-slate-50"
+            activeTab === "apply"
+              ? "bg-[var(--green)] text-white shadow-lg scale-105"
+              : "text-slate-500 hover:bg-slate-50"
           }`}
         >
           📤 New Request
@@ -179,7 +225,9 @@ export default function Logistics() {
         <button
           onClick={() => setActiveTab("outgoing")}
           className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${
-            activeTab === "outgoing" ? "bg-[var(--green)] text-white shadow-lg scale-105" : "text-slate-500 hover:bg-slate-50"
+            activeTab === "outgoing"
+              ? "bg-[var(--green)] text-white shadow-lg scale-105"
+              : "text-slate-500 hover:bg-slate-50"
           }`}
         >
           🛫 Outgoing ({outgoing.length})
@@ -187,10 +235,13 @@ export default function Logistics() {
         <button
           onClick={() => setActiveTab("incoming")}
           className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${
-            activeTab === "incoming" ? "bg-[var(--green)] text-white shadow-lg scale-105" : "text-slate-500 hover:bg-slate-50"
+            activeTab === "incoming"
+              ? "bg-[var(--green)] text-white shadow-lg scale-105"
+              : "text-slate-500 hover:bg-slate-50"
           }`}
         >
-          🛬 Incoming ({incoming.filter((i) => i.status === "Approved (VHC Issued)").length})
+          🛬 Incoming (
+          {incoming.filter((i) => i.status === "Approved (VHC Issued)").length})
         </button>
       </div>
 
@@ -222,7 +273,7 @@ export default function Logistics() {
                       : a.severity === "safe"
                         ? "✅ Ready"
                         : a.severity === "Ongoing"
-                          ? "⏳ Unverified" // UPDATED LABEL
+                          ? "⏳ Unverified"
                           : "⛔ Sick"}
                   </option>
                 ))}
@@ -236,7 +287,12 @@ export default function Logistics() {
                 </label>
                 <select
                   value={formData.destinationType}
-                  onChange={(e) => setFormData({ ...formData, destinationType: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      destinationType: e.target.value,
+                    })
+                  }
                   className="w-full p-4 border-2 border-slate-50 rounded-xl outline-none focus:border-[var(--green)] font-medium"
                 >
                   <option value="Internal">Local Farmer</option>
@@ -253,7 +309,9 @@ export default function Logistics() {
                   required
                   min={getMinDate()}
                   value={formData.transportDate}
-                  onChange={(e) => setFormData({ ...formData, transportDate: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, transportDate: e.target.value })
+                  }
                   className="w-full p-4 border-2 border-slate-50 rounded-xl outline-none focus:border-[var(--green)] font-medium"
                 />
               </div>
@@ -269,7 +327,12 @@ export default function Logistics() {
                   placeholder="Enter Buyer Username/Email"
                   className="w-full p-4 border-2 border-white rounded-xl outline-none focus:border-[var(--green)] shadow-sm font-bold"
                   value={formData.receiverUsername}
-                  onChange={(e) => setFormData({ ...formData, receiverUsername: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      receiverUsername: e.target.value,
+                    })
+                  }
                 />
               ) : (
                 <div className="space-y-4">
@@ -278,14 +341,21 @@ export default function Logistics() {
                     placeholder="Receiver Name"
                     className="w-full p-4 border-2 border-white rounded-xl outline-none focus:border-[var(--green)] shadow-sm font-bold"
                     value={formData.receiverName}
-                    onChange={(e) => setFormData({ ...formData, receiverName: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, receiverName: e.target.value })
+                    }
                   />
                   <input
                     type="text"
                     placeholder="Full Destination Address"
                     className="w-full p-4 border-2 border-white rounded-xl outline-none focus:border-[var(--green)] shadow-sm font-bold"
                     value={formData.receiverAddress}
-                    onChange={(e) => setFormData({ ...formData, receiverAddress: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        receiverAddress: e.target.value,
+                      })
+                    }
                   />
                 </div>
               )}
@@ -303,64 +373,114 @@ export default function Logistics() {
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
-                <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest">Identification</th>
-                <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest">Counterparty</th>
-                <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Status / Action</th>
+                <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest">
+                  Identification
+                </th>
+                <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest">
+                  Counterparty
+                </th>
+                <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest text-center">
+                  Status / Action
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {activeTab === "outgoing" && outgoing.map((r) => (
-                <tr key={r._id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="p-6">
-                    <span className="font-mono text-xs font-black text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                      {r.batchId}
-                    </span>
-                  </td>
-                  <td className="p-6 font-bold text-slate-700">
-                    {r.destinationType === "Internal" ? r.receiverUsername : r.receiverDetails?.name}
-                  </td>
-                  <td className="p-6 flex flex-col items-center gap-2">
-                    <StatusBadge status={r.status} />
-                    {r.destinationType !== "Internal" && (r.status === "Approved (VHC Issued)" || r.status === "Proof Rejected") && (
-                      <button
-                        onClick={() => triggerFileUpload(r._id)}
-                        className="text-[10px] font-black bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-black transition shadow-md uppercase"
-                      >
-                        📄 Upload Proof
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {activeTab === "incoming" && incoming.map((r) => (
-                <tr key={r._id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="p-6">
-                    <span className="font-mono text-xs font-black text-[var(--green)] bg-green-50 px-2 py-1 rounded">
-                      {r.batchId}
-                    </span>
-                  </td>
-                  <td className="p-6 font-bold text-slate-700">{r.farmerUsername}</td>
-                  <td className="p-6 text-center">
-                    {r.status === "Approved (VHC Issued)" ? (
-                      <button
-                        onClick={() => handleReceive(r._id)}
-                        className="bg-[var(--green)] text-white px-6 py-2.5 rounded-xl text-xs font-black hover:opacity-90 shadow-lg transition uppercase tracking-widest"
-                      >
-                        📥 Confirm Receipt
-                      </button>
-                    ) : (
+              {activeTab === "outgoing" &&
+                outgoing.map((r) => (
+                  <tr
+                    key={r._id}
+                    className="hover:bg-slate-50/50 transition-colors"
+                  >
+                    <td className="p-6">
+                      <span className="font-mono text-xs font-black text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                        {r.batchId}
+                      </span>
+                    </td>
+                    <td className="p-6 font-bold text-slate-700">
+                      {r.destinationType === "Internal"
+                        ? r.receiverUsername
+                        : r.receiverDetails?.name}
+                    </td>
+                    <td className="p-6 flex flex-col items-center gap-2">
                       <StatusBadge status={r.status} />
-                    )}
-                  </td>
-                </tr>
-              ))}
+
+                      <div className="flex gap-2">
+                        {/* SENDER PROOF UPLOAD (Works for Internal and External) */}
+                        {((r.status === "Approved (VHC Issued)" &&
+                          !r.proofDocumentUrl) ||
+                          r.status === "Proof Rejected") && (
+                          <button
+                            onClick={() => triggerFileUpload(r._id)}
+                            className="text-[10px] font-black bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-black transition shadow-md uppercase"
+                          >
+                            📄{" "}
+                            {r.destinationType === "Internal"
+                              ? "Upload POD"
+                              : "Upload Exit Proof"}
+                          </button>
+                        )}
+
+                        {/* VIEW UPLOADED PROOF */}
+                        {r.proofDocumentUrl && (
+                          <a
+                            href={r.proofDocumentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-black bg-blue-50 text-blue-600 border border-blue-200 px-4 py-2 rounded-lg hover:bg-blue-100 transition shadow-sm uppercase"
+                          >
+                            👁️ View Proof
+                          </a>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+              {activeTab === "incoming" &&
+                incoming.map((r) => (
+                  <tr
+                    key={r._id}
+                    className="hover:bg-slate-50/50 transition-colors"
+                  >
+                    <td className="p-6">
+                      <span className="font-mono text-xs font-black text-[var(--green)] bg-green-50 px-2 py-1 rounded">
+                        {r.batchId}
+                      </span>
+                    </td>
+                    <td className="p-6 font-bold text-slate-700">
+                      {r.farmerUsername}
+                    </td>
+                    <td className="p-6 flex flex-col items-center gap-2">
+                      <StatusBadge status={r.status} />
+
+                      <div className="flex gap-2 items-center">
+                        {/* VIEW SENDER'S UPLOADED PROOF */}
+                        {r.proofDocumentUrl && (
+                          <a
+                            href={r.proofDocumentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-black bg-blue-50 text-blue-600 border border-blue-200 px-4 py-2 rounded-lg hover:bg-blue-100 transition shadow-sm uppercase"
+                          >
+                            👁️ View POD
+                          </a>
+                        )}
+
+                        {/* RECEIVER CONFIRM */}
+                        {r.status === "Approved (VHC Issued)" && (
+                          <button
+                            onClick={() => handleReceive(r._id)}
+                            className="bg-[var(--green)] text-white px-6 py-2 rounded-xl text-xs font-black hover:opacity-90 shadow-md transition uppercase tracking-widest flex items-center gap-2"
+                          >
+                            📥 Confirm Receipt
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
-          {(activeTab === "outgoing" ? outgoing : incoming).length === 0 && (
-            <div className="p-20 text-center text-slate-400 font-bold italic">
-              No movement records found.
-            </div>
-          )}
         </div>
       )}
     </div>

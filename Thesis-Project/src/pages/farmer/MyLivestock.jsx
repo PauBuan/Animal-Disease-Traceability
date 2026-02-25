@@ -1,6 +1,7 @@
-// src/pages/public/PublicLedger.jsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import AuditTrailModal from "../../components/common/AuditTrailModal";
+import MedicalLogModal from "../../components/common/MedicalLogModal";
 
 export default function PublicLedger() {
   const navigate = useNavigate();
@@ -20,6 +21,9 @@ export default function PublicLedger() {
   const [healthLoading, setHealthLoading] = useState(false);
   const [showHealthModal, setShowHealthModal] = useState(false);
   const [selectedAnimalForHealth, setSelectedAnimalForHealth] = useState(null);
+
+  // Search State
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -108,7 +112,7 @@ export default function PublicLedger() {
     }
   };
 
-  // --- NEW: Fetch Health Records ---
+  // Fetch Health Records
   const viewHealthRecords = async (tx) => {
     const lookupId = tx.batchId || tx._id;
     setSelectedAnimalForHealth(tx);
@@ -188,6 +192,14 @@ export default function PublicLedger() {
     navigate("/login");
   };
 
+  // Filter transactions based on Search Query
+  const filteredTransactions = transactions.filter((tx) => {
+    const query = searchQuery.toLowerCase();
+    const batchMatch = (tx.batchId || "").toLowerCase().includes(query);
+    const speciesMatch = (tx.species || "").toLowerCase().includes(query);
+    return batchMatch || speciesMatch;
+  });
+
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-12">
       <header className="max-w-7xl mx-auto mb-12 text-center">
@@ -199,15 +211,14 @@ export default function PublicLedger() {
         </p>
       </header>
 
-      <div className="max-w-7xl mx-auto grid gap-10 lg:grid-cols-2">
+      {/* ------ */}
+      <div className="max-w-[1400px] mx-auto grid gap-8 lg:grid-cols-2">
         {/* Form Section */}
-        <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8">
+        <section className="bg-white rounded-3xl shadow-sm border border-slate-200 border-t-4 border-t-emerald-500 p-8 h-fit">
           <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <span className="w-2 h-8 bg-emerald-500 rounded-full"></span>
             Register Asset
           </h2>
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* ... (Form inputs remain exactly the same) ... */}
             <div className="grid grid-cols-2 gap-4">
               <input
                 name="fullName"
@@ -240,11 +251,13 @@ export default function PublicLedger() {
                   <option value="" disabled>
                     Select Species
                   </option>
-                  {["Hog", "Cow", "Chicken", "Sheep", "Goat"].map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
+                  {["Hog", "Cow", "Chicken", "Carabao", "Duck", "Goat"].map(
+                    (opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ),
+                  )}
                 </select>
               </div>
 
@@ -301,284 +314,168 @@ export default function PublicLedger() {
           </form>
         </section>
 
-        {/* Local History Table */}
-        <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8">
-          <h2 className="text-2xl font-bold text-slate-800 mb-6">
-            Record History
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                  <th className="py-4 px-2 text-emerald-600">Audit</th>
-                  <th className="py-4 px-2 text-blue-600">Medical</th>{" "}
-                  {/* NEW COLUMN */}
-                  <th className="py-4 px-2">Batch ID / Species</th>
-                  <th className="py-4 px-2 text-right">Date</th>
+        {/* Table Section */}
+        <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 flex flex-col h-[700px]">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-slate-800">
+              Record History
+            </h2>
+
+            {/* SEARCH BAR */}
+            <div className="relative w-64">
+              <input
+                type="text"
+                placeholder="Search Batch ID or Species..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition"
+              />
+              <span className="absolute left-3 top-3 text-slate-400">🔍</span>
+            </div>
+          </div>
+
+          {/* SCROLLABLE CONTAINER */}
+          <div className="overflow-auto flex-1 pr-2 custom-scrollbar">
+            <table className="w-full text-left border-collapse relative">
+              <thead className="sticky top-0 bg-white z-10 shadow-sm">
+                <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                  <th className="py-4 px-4 text-emerald-600">Audit</th>
+                  <th className="py-4 px-4 text-blue-600">Medical</th>
+                  <th className="py-4 px-4">Batch ID / Species</th>
+                  <th className="py-4 px-4 text-center">Qty</th>
+                  <th className="py-4 px-4 text-right">Date</th>
                 </tr>
               </thead>
               <tbody className="text-sm">
-                {transactions.map((tx) => (
-                  <tr
-                    key={tx._id}
-                    className="border-b border-slate-50 hover:bg-slate-50/50 transition"
-                  >
-                    <td className="py-4 px-2">
-                      <button
-                        // --- FIX APPLIED HERE ---
-                        onClick={() =>
-                          viewBlockchainHistory(tx.batchId || tx._id)
-                        }
-                        className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-black uppercase hover:bg-emerald-100 transition"
-                      >
-                        Trail
-                      </button>
-                    </td>
-                    <td className="py-4 px-2">
-                      {/* --- NEW BUTTON --- */}
-                      <button
-                        onClick={() => viewHealthRecords(tx)}
-                        className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase hover:bg-blue-100 transition"
-                      >
-                        Log
-                      </button>
-                    </td>
-                    <td className="py-4 px-2">
-                      <div className="font-semibold text-slate-700">
-                        {tx.species}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-mono">
-                        {tx.batchId || "Legacy ID"}
-                      </div>
-                    </td>
-                    <td className="py-4 px-2 text-right text-slate-400 text-xs">
-                      {new Date(tx.timestamp).toLocaleDateString()}
+                {filteredTransactions.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan="5"
+                      className="py-16 text-center text-slate-400 italic"
+                    >
+                      No records match your search.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredTransactions.map((tx) => {
+                    // Logic for Health Indicators
+                    const isDangerous = tx.severity === "dangerous";
+                    const isMild = tx.severity === "mild";
+                    const isSafe = tx.severity === "safe";
+                    const isPending =
+                      !tx.severity ||
+                      tx.severity === "Ongoing" ||
+                      tx.status === "Submitted to Vet";
+
+                    return (
+                      <tr
+                        key={tx._id}
+                        className={`border-b border-slate-50 transition ${
+                          isDangerous || isMild
+                            ? "bg-red-50/20 hover:bg-red-50/50"
+                            : "hover:bg-slate-50/60"
+                        }`}
+                      >
+                        <td className="py-4 px-4">
+                          <button
+                            onClick={() =>
+                              viewBlockchainHistory(tx.batchId || tx._id)
+                            }
+                            className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-emerald-100 transition shadow-sm"
+                          >
+                            Trail
+                          </button>
+                        </td>
+                        <td className="py-4 px-4">
+                          <button
+                            onClick={() => viewHealthRecords(tx)}
+                            className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-blue-100 transition shadow-sm"
+                          >
+                            Log
+                          </button>
+                        </td>
+
+                        {/* BATCH ID & ICONS COMBINED */}
+                        <td className="py-4 px-4">
+                          <div className="font-bold text-slate-700 flex items-center gap-2 text-base">
+                            {tx.species}
+                            {/* DYNAMIC ICONS */}
+                            {isDangerous && (
+                              <span
+                                title="Dangerous Disease (Cull/Isolate)"
+                                className="text-red-500 animate-pulse text-lg"
+                              >
+                                ⛔
+                              </span>
+                            )}
+                            {isMild && (
+                              <span
+                                title="Mild Illness (Quarantine)"
+                                className="text-amber-500 text-lg"
+                              >
+                                ⚠️
+                              </span>
+                            )}
+                            {isSafe && (
+                              <span
+                                title="Verified Healthy"
+                                className="text-emerald-500 text-lg"
+                              >
+                                ✅
+                              </span>
+                            )}
+                            {isPending && (
+                              <span
+                                title="Pending Vet Verification"
+                                className="text-blue-400 text-lg opacity-80"
+                              >
+                                ⏳
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                            {tx.batchId || "Legacy ID"}
+                          </div>
+                        </td>
+
+                        <td className="py-4 px-4 text-center font-bold text-slate-600 text-base">
+                          {tx.quantity}
+                        </td>
+
+                        <td className="py-4 px-4 text-right text-slate-400 text-xs font-medium">
+                          {new Date(tx.timestamp).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
         </section>
       </div>
 
-      {/* --- NEW: Medical Records Modal --- */}
-      {showHealthModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-blue-50 sticky top-0">
-              <div>
-                <h3 className="text-2xl font-black text-blue-900">
-                  Digital Health Log
-                </h3>
-                {selectedAnimalForHealth && (
-                  <p className="text-blue-600 text-sm font-bold uppercase tracking-tighter mt-1">
-                    {selectedAnimalForHealth.batchId || "Legacy Record"} |{" "}
-                    {selectedAnimalForHealth.species}
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={() => setShowHealthModal(false)}
-                className="h-10 w-10 flex items-center justify-center rounded-full bg-white text-slate-500 hover:bg-red-50 hover:text-red-500 transition-colors font-bold"
-              >
-                ✕
-              </button>
-            </div>
+      {/* --- Medical Records Modal --- */}
+      <MedicalLogModal
+        isOpen={showHealthModal}
+        onClose={() => setShowHealthModal(false)}
+        healthLoading={healthLoading}
+        healthLogs={healthLogs}
+        selectedAnimal={selectedAnimalForHealth}
+      />
 
-            <div className="p-8 overflow-y-auto bg-white">
-              {healthLoading ? (
-                <div className="text-center text-slate-400 py-10">
-                  Loading health data...
-                </div>
-              ) : healthLogs.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-5xl mb-4 opacity-50">📋</div>
-                  <p className="text-slate-500 font-medium">
-                    No medical records found for this asset.
-                  </p>
-                  <p className="text-xs text-slate-400 mt-2">
-                    Only authorized Veterinarians can add records.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {healthLogs.map((log, i) => (
-                    <div
-                      key={i}
-                      className="border border-slate-100 rounded-xl p-4 flex justify-between items-center hover:border-blue-200 transition"
-                    >
-                      <div>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-blue-500 bg-blue-50 px-2 py-1 rounded">
-                          {log.type}
-                        </span>
-                        <h4 className="font-bold text-slate-800 mt-2">
-                          {log.name}
-                        </h4>
-                        <p className="text-xs text-slate-500 mt-1">
-                          Administered by:{" "}
-                          <span className="font-medium text-slate-700">
-                            {log.vetUsername}
-                          </span>
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div
-                          className={`text-xs font-bold px-2 py-1 rounded inline-block mb-2 ${log.status === "Valid" ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"}`}
-                        >
-                          {log.status}
-                        </div>
-                        <div className="text-xs text-slate-400 block">
-                          {formatDate(log.date)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Improved Audit Trail Modal (Unchanged structurally, just logic updated above) */}
-      {showHistoryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          {/* ... existing modal code ... */}
-          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0">
-              <div>
-                <h3 className="text-2xl font-black text-slate-900">
-                  Blockchain Audit Trail
-                </h3>
-                <p className="text-emerald-500 text-sm font-bold uppercase tracking-tighter">
-                  Cryptographic History
-                </p>
-              </div>
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                className="h-10 w-10 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 transition-colors font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="p-8 overflow-y-auto bg-slate-50/30">
-              {historyLoading ? (
-                <div className="flex flex-col items-center py-20">
-                  <div className="w-10 h-10 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mb-4"></div>
-                  <p className="text-slate-400 font-medium">
-                    Fetching from Peer Nodes...
-                  </p>
-                </div>
-              ) : history.length === 0 ? (
-                <p className="text-center text-slate-400 py-10 italic">
-                  No blockchain records found.
-                </p>
-              ) : (
-                <div className="space-y-0">
-                  {history.map((item, i) => (
-                    <div key={i} className="relative pl-10 pb-10 group">
-                      {/* Timeline Line */}
-                      {i !== history.length - 1 && (
-                        <div className="absolute left-[11px] top-6 bottom-0 w-0.5 bg-slate-200 group-hover:bg-emerald-200 transition-colors"></div>
-                      )}
-
-                      {/* Node Dot */}
-                      <div className="absolute left-0 top-1 w-6 h-6 rounded-full border-4 border-white bg-emerald-500 shadow-md shadow-emerald-200 z-10"></div>
-
-                      <div className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-emerald-500/30 transition-all hover:shadow-xl hover:shadow-slate-200/50">
-                        <div className="flex justify-between items-start mb-4">
-                          <span className="bg-slate-900 text-white text-[10px] px-2 py-1 rounded font-mono uppercase tracking-widest">
-                            TX: {item.txId.substring(0, 12)}...
-                          </span>
-                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-                            {formatDate(item.data.timestamp)}
-                          </span>
-                        </div>
-
-                        <p className="text-lg font-black text-slate-800 mb-4">
-                          {item.data.status || "State Update"}
-                        </p>
-
-                        <div className="grid grid-cols-2 gap-3 text-[11px] text-slate-500 font-medium">
-                          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-                            <span className="block text-slate-400 uppercase text-[9px] mb-1">
-                              Species
-                            </span>
-                            <span className="text-slate-800 font-bold">
-                              {item.data.species}
-                            </span>
-                          </div>
-                          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-                            <span className="block text-slate-400 uppercase text-[9px] mb-1">
-                              Quantity
-                            </span>
-                            <span className="text-slate-800 font-bold">
-                              {item.data.quantity} heads
-                            </span>
-                          </div>
-                          <div className="col-span-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                            <span className="block text-slate-400 uppercase text-[9px] mb-1">
-                              Origin
-                            </span>
-                            <span className="text-slate-800">
-                              {item.data.location}
-                            </span>
-                          </div>
-                          <div className="col-span-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                            <span className="block text-slate-400 uppercase text-[9px] mb-1">
-                              {/* SMART LABEL: Changes based on Vet verification */}
-                              {!item.data.severity ||
-                              item.data.severity === "Ongoing"
-                                ? "Initial Observation (Farmer)"
-                                : "Official Health Status (Vet)"}
-                            </span>
-
-                            <span className="text-slate-800">
-                              {/* SMART CONTENT: Shows text note if unverified, shows official status if verified */}
-                              {!item.data.severity ||
-                              item.data.severity === "Ongoing" ? (
-                                <span className="italic text-slate-600">
-                                  "{item.data.healthStatus}"
-                                </span>
-                              ) : item.data.severity === "safe" ? (
-                                <span className="font-bold text-emerald-600">
-                                  ✅ Verified Healthy
-                                </span>
-                              ) : item.data.severity === "mild" ? (
-                                <span className="font-bold text-amber-600">
-                                  ⚠️ Mild Illness
-                                </span>
-                              ) : (
-                                <span className="font-bold text-red-600">
-                                  ⛔ Dangerous Disease
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* RENDER SPECIFIC DISEASE ONLY IF IT EXISTS AND IS VERIFIED */}
-                        {item.data.diagnosedDisease &&
-                          item.data.severity !== "safe" &&
-                          item.data.severity !== "Ongoing" && (
-                            <div className="mt-3 bg-red-50 border border-red-100 p-3 rounded-lg flex items-center gap-3">
-                              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                              <span className="text-xs font-black text-red-600">
-                                DIAGNOSIS: {item.data.diagnosedDisease}
-                              </span>
-                            </div>
-                          )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Audit Trail Modal */}
+      <AuditTrailModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        historyLoading={historyLoading}
+        history={history}
+        selectedAnimal={
+          transactions.find(
+            (t) => (t.batchId || t._id) === history[0]?.data?.batchId,
+          ) || {}
+        } // Pass basic info
+      />
     </div>
   );
 }

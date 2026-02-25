@@ -140,7 +140,7 @@ export default function ExitPermits() {
                   </td>
                   <td className="p-4">
                     <a
-                      href={r.proofOfSlaughter}
+                      href={r.proofDocumentUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 text-blue-600 font-medium text-sm hover:underline bg-blue-50 px-3 py-2 rounded-lg w-fit"
