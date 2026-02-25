@@ -1,146 +1,388 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 
 export default function AdminAlert() {
-  const navigate = useNavigate();
-  const [description, setDescription] = useState("");
   const [targetBarangay, setTargetBarangay] = useState("All");
   const [isSending, setIsSending] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [history, setHistory] = useState([]);
+  
+  const [formData, setFormData] = useState({
+    title: "",
+    severity: "Advisory",
+    species: "All Species",
+    instruction: "",
+    description: ""
+  });
 
-  const VALID_BARANGAYS = [
-    "All", "Aplaya", "Balibago", "Caingin", "Dila", "Dita", "Don Jose", "Ibaba",
-    "Kanluran", "Labas", "Macabling", "Malitlit", "Malusak", "Market Area",
-    "Pooc", "Pulong Santa Cruz", "Santo Domingo", "Sinalhan", "Tagapo"
-  ];
+  const VALID_BARANGAYS = ["All", "Aplaya", "Balibago", "Caingin", "Dila", "Dita", "Don Jose", "Ibaba", "Kanluran", "Labas", "Macabling", "Malitlit", "Malusak", "Market Area", "Pooc", "Pulong Santa Cruz", "Santo Domingo", "Sinalhan", "Tagapo"];
+
+  const fetchAlertHistory = async () => {
+    try {
+      const response = await fetch("http://localhost:3001/api/alert-history");
+      if (response.ok) {
+        const data = await response.json();
+        setHistory(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch history:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAlertHistory();
+  }, []);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to remove this record from the logs?")) return;
+
+    try {
+      const response = await fetch(`http://localhost:3001/api/delete-alert/${id}`, {
+        method: "DELETE", // Changed from POST to DELETE
+      });
+
+      if (response.ok) {
+        // Refresh the list locally by filtering out the deleted ID
+        setHistory(prev => prev.filter(item => item._id !== id));
+      } else {
+        const errorData = await response.json();
+        alert(`❌ Error: ${errorData.error || "Failed to delete record."}`);
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Connection Error: Could not reach the server.");
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!description.trim()) {
-      alert("Please enter an alert message.");
+
+    if (!formData.title || !formData.description) {
+      alert("Please fill in at least the Title and Description.");
       return;
     }
 
     const confirmBroadcast = window.confirm(
-      `Are you sure you want to send this broadcast to ${
-        targetBarangay === "All" ? "ALL registered users" : "Barangay " + targetBarangay
-      }?`
+      `Confirm: Send ${formData.severity} alert to ${targetBarangay === "All" ? "ALL barangays" : "Brgy. " + targetBarangay}?`
     );
     if (!confirmBroadcast) return;
 
     setIsSending(true);
 
+    const fullMessage = `
+      [${formData.severity.toUpperCase()}] ${formData.title}
+      Affected: ${formData.species}
+      Location: ${targetBarangay}
+      Details: ${formData.description}
+      Instruction: ${formData.instruction}
+    `.trim();
+
     try {
       const response = await fetch("http://localhost:3001/api/send-alert", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: description,
+          message: fullMessage,
           targetBarangay: targetBarangay,
+          metadata: { ...formData }
         }),
       });
 
-      const data = await response.json();
-
       if (response.ok) {
-        alert(`✅ Success! Alert broadcasted to ${data.count} users.`);
-        setDescription("");
-        setTargetBarangay("All");
+        alert("✅ Success! Alert broadcasted to the community.");
+        setFormData({ title: "", severity: "Advisory", species: "All Species", instruction: "", description: "" });
+        fetchAlertHistory(); 
       } else {
-        alert(`❌ Error: ${data.error || "Failed to send alert"}`);
+        const errorData = await response.json();
+        alert(`❌ Error: ${errorData.error || "Failed to send alert"}`);
       }
     } catch (err) {
       console.error("Alert Error:", err);
-      alert("Could not connect to the server. Please check if the backend is running.");
+      alert("Connection Error: Is your backend running?");
     } finally {
       setIsSending(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-transparent flex items-center justify-center p-4 sm:p-6 lg:p-8">
-      <div className="w-full max-w-6xl">
-        {/* Alert Form Card */}
-        <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-rose-200/40 overflow-hidden">
-          <div className="bg-gradient-to-r from-rose-600/5 to-red-600/5 px-8 py-6 border-b border-rose-100">
-            <h2 className="text-5xl font-bold text-rose-900 text-center flex items-center justify-center gap-3">
-              <span className="text-4xl">🚨</span> Broadcast Alert
-            </h2>
+    <div className="min-h-screen bg-transparent p-6 lg:p-12 font-sans">
+      <div className="max-w-7xl mx-auto">
+        
+        {/* CENTERED HEADER */}
+        <div className="mb-12 text-center">
+          <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">
+            Broadcast Alert System
+          </h1>
+          <p className="text-emerald-600 font-bold text-sm uppercase tracking-widest mt-1">
+            Official Veterinary Alert Control
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+          
+          {/* LEFT: TEMPLATE EDITOR (FORM) */}
+          <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 p-8 lg:p-10">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-8">1. Configure Template</h3>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Severity</label>
+                  <select name="severity" value={formData.severity} onChange={handleInputChange} 
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
+                    <option value="Advisory">🟢 Advisory</option>
+                    <option value="Warning">🟠 Warning</option>
+                    <option value="Critical">🔴 Critical</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Area Scope</label>
+                  <select value={targetBarangay} onChange={(e) => setTargetBarangay(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
+                    {VALID_BARANGAYS.map(b => <option key={b} value={b}>{b === "All" ? "Citywide" : b}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Alert Title</label>
+                <input name="title" value={formData.title} onChange={handleInputChange} placeholder="Header of the alert"
+                  className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl font-bold outline-none focus:ring-2 focus:ring-emerald-500" required />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Species</label>
+                <input name="species" value={formData.species} onChange={handleInputChange} placeholder="e.g. Hogs, Poultry"
+                  className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl font-bold outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Details</label>
+                <textarea name="description" value={formData.description} onChange={handleInputChange} rows="3" required
+                  className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl font-bold outline-none resize-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Instruction</label>
+                <input name="instruction" value={formData.instruction} onChange={handleInputChange} placeholder="Required action"
+                  className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl font-bold outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+
+              <button type="submit" disabled={isSending}
+                className={`w-full py-4 text-white rounded-xl font-black transition-all active:scale-[0.98] shadow-xl shadow-emerald-200 uppercase tracking-widest text-sm ${isSending ? 'bg-slate-400' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
+                {isSending ? "Sending..." : "Broadcast Report"}
+              </button>
+            </form>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-8 lg:p-10 space-y-8">
-            
-            {/* Barangay Filter Dropdown */}
-            <div className="relative">
-              <label className="block text-sm font-bold text-rose-800 mb-2 uppercase tracking-wide">
-                Target Barangay
-              </label>
-              <select
-                value={targetBarangay}
-                onChange={(e) => setTargetBarangay(e.target.value)}
-                className="w-full px-5 py-4 bg-white border border-rose-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-400 transition text-slate-900 shadow-sm hover:border-rose-300 appearance-none"
-              >
-                {VALID_BARANGAYS.map((brgy) => (
-                  <option key={brgy} value={brgy}>
-                    {brgy === "All" ? "Broadcast to All Barangays" : `Brgy. ${brgy}`}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-rose-600">
-                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
+          {/* RIGHT SIDE: PREVIEW & HISTORY */}
+          <div className="space-y-8">
+            {/* LIVE PREVIEW FLASHCARD */}
+            <div>
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">2. Live Preview</h3>
+              <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl border border-slate-100 relative overflow-hidden">
+                <div className={`absolute left-0 top-0 bottom-0 w-2 ${
+                  formData.severity === 'Critical' ? 'bg-red-500' : formData.severity === 'Warning' ? 'bg-orange-500' : 'bg-emerald-500'
+                }`} />
+                
+                <div className="flex justify-between items-start mb-6">
+                  <span className={`text-[10px] font-black uppercase px-2 py-1 rounded ${
+                    formData.severity === 'Critical' ? 'bg-red-50 text-red-600' : 
+                    formData.severity === 'Warning' ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'
+                  }`}>
+                    {formData.severity}
+                  </span>
+                  <p className="text-[10px] font-bold text-slate-300">PREVIEW MODE</p>
+                </div>
+
+                <h2 className="text-2xl font-black text-slate-800 mb-6">{formData.title || "Untitled Report"}</h2>
+
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="bg-slate-50 p-3 rounded-xl">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Target</p>
+                    <p className="font-black text-slate-700">{formData.species}</p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Location</p>
+                    <p className="font-black text-slate-700">{targetBarangay}</p>
+                  </div>
+                </div>
+
+                <p className="text-slate-600 font-medium leading-relaxed mb-6 italic">
+                  "{formData.description || "Waiting for details..."}"
+                </p>
+
+                {formData.instruction && (
+                  <div className="bg-slate-900 p-4 rounded-xl flex items-center gap-3 text-white">
+                    <span className="text-xl">⚡</span>
+                    <p className="text-xs font-bold uppercase tracking-tight">{formData.instruction}</p>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Alert Message */}
-            <div className="relative">
-              <label
-                htmlFor="description"
-                className="block text-sm font-bold text-rose-800 mb-2 uppercase tracking-wide"
-              >
-                Alert Description
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                rows="7"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Enter message (e.g., 'Health quarantine active in Brgy. Dita...')"
-                className="w-full px-5 py-4 border border-rose-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-400 transition resize-none bg-white/80 text-slate-900 shadow-sm hover:border-rose-300"
-                required
-              />
-            </div>
-
-            {/* Submit Button */}
-            <div className="flex flex-col gap-4 items-center pt-4">
-              <button
-                type="submit"
-                disabled={isSending}
-                className={`w-full max-w-xs font-black py-4 px-8 rounded-2xl shadow-xl transition-all transform active:scale-95 text-white text-lg
-                  ${isSending 
-                    ? "bg-rose-400 cursor-not-allowed" 
-                    : "bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 hover:shadow-2xl hover:scale-[1.02]"
-                  }`}
-              >
-                {isSending ? (
-                  <span className="flex items-center justify-center gap-3">
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            {/* HISTORY FLASHCARD */}
+            <div className="flex-1">
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">3. System Logs</h3>
+              <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl border border-slate-100 flex flex-col justify-between items-center h-[240px]">
+                <div className="text-center pt-4">
+                  <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Sending...
-                  </span>
-                ) : (
-                  "Send Broadcast"
-                )}
-              </button>
+                  </div>
+                  <p className="font-black text-slate-800 text-xl uppercase tracking-tight">Recent Broadcasts</p>
+                  <p className="text-slate-400 text-xs font-medium">Archived logs and status reports</p>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setIsHistoryModalOpen(true)}
+                  className="w-full py-4 bg-slate-50 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-emerald-50 hover:text-emerald-600 transition-all border border-slate-100 mb-4">
+                  View Full History
+                </button>
+              </div>
             </div>
-          </form>
+          </div>
         </div>
       </div>
+      
+      {/* MODAL FOR HISTORY ALERT LOGS (ADMIN VIEW) */}
+      {isHistoryModalOpen && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 sm:p-6">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
+            onClick={() => setIsHistoryModalOpen(false)}
+          />
+
+          {/* Modal card */}
+          <div className="
+            relative w-full max-w-2xl max-h-[90vh] 
+            bg-white rounded-3xl shadow-xl 
+            flex flex-col overflow-hidden
+            border border-slate-100
+          ">
+            {/* Header */}
+            <div className="
+              px-7 py-6 
+              border-b border-slate-100 
+              flex items-center justify-between 
+              bg-white sticky top-0 z-10
+            ">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight uppercase">
+                  Alert Archive
+                </h2>
+                <p className="text-sm text-red-600 mt-1 font-bold uppercase tracking-wider">
+                  Management & Transmission Logs
+                </p>
+              </div>
+
+              <button
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="
+                  p-2 rounded-full 
+                  text-slate-500 hover:text-slate-800 
+                  hover:bg-slate-100 
+                  transition-colors
+                "
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 bg-slate-50/40">
+              {history.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full py-16 text-center">
+                  <p className="text-slate-400 font-medium text-lg">No broadcasts found.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {history.map((item) => (
+                    <div
+                      key={item._id}
+                      className="
+                        group bg-white rounded-2xl 
+                        border border-slate-100 
+                        p-5 sm:p-6 
+                        hover:border-red-200 hover:shadow-md
+                        transition-all
+                        flex flex-col sm:flex-row sm:items-center sm:justify-between
+                        gap-4
+                      "
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2 flex-wrap">
+                          <span className={`
+                            inline-flex items-center px-2.5 py-0.5 
+                            rounded-full text-[10px] font-black uppercase tracking-wider
+                            ${
+                              item.severity === 'Critical'
+                                ? 'bg-red-100 text-red-700'
+                                : item.severity === 'Warning'
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-emerald-100 text-emerald-700'
+                            }
+                          `}>
+                            {item.severity}
+                          </span>
+
+                          <time className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            {new Date(item.date).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </time>
+                        </div>
+
+                        <h4 className="text-lg font-black text-slate-800 leading-tight uppercase">
+                          {item.title}
+                        </h4>
+
+                        <div className="text-[11px] font-bold text-slate-500 mt-1 uppercase tracking-tighter">
+                          Target: <span className="text-slate-700">{item.species}</span>
+                          <span className="mx-2 text-slate-300">•</span>
+                          Area: <span className="text-slate-700">{item.targetBarangay}</span>
+                        </div>
+                      </div>
+
+                      {/* DELETE ACTION */}
+                      <button 
+                        onClick={() => handleDelete(item._id)}
+                        className="
+                          p-3 bg-slate-50 text-slate-400 rounded-xl 
+                          hover:bg-red-50 hover:text-red-600 
+                          transition-all opacity-0 group-hover:opacity-100
+                          border border-transparent hover:border-red-100
+                        "
+                        title="Delete Log"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-8 py-5 border-t border-slate-100 text-center bg-white">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                End of Logs • {history.length} Record{history.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

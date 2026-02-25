@@ -1,32 +1,24 @@
 import React, { useState, useEffect } from "react";
-import { Bar } from "react-chartjs-2";
-import { MapContainer, TileLayer, Marker, Tooltip as MapTooltip, ZoomControl } from "react-leaflet";
+import { Bar, Pie } from "react-chartjs-2";
+import { MapContainer, TileLayer, GeoJSON, ZoomControl } from "react-leaflet";
 import { useNavigate } from "react-router-dom";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// Leaflet icon fix
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41]
-});
-L.Marker.prototype.options.icon = DefaultIcon;
+// Climbing out of /public, out of /pages, into /assets/data
+import santaRosaData from "../../assets/data/santa_rosa.json";
 
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   BarElement,
+  ArcElement,
   Tooltip,
   Legend,
 } from "chart.js";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
 export default function AnimalMovement() {
   const navigate = useNavigate();
@@ -42,49 +34,73 @@ export default function AnimalMovement() {
   const [barangayMapStats, setBarangayMapStats] = useState({});
   const [topBarangays, setTopBarangays] = useState([]);
 
-  const SPECIES_LIST = ["Hog", "Cow", "Chicken", "Sheep", "Goat"];
+  // --- DATE FILTER STATES ---
+  const [rawTransactions, setRawTransactions] = useState([]);
+  const currentYear = new Date().getFullYear();
+  const [filterMode, setFilterMode] = useState("preset");
+  const [selectedMonth, setSelectedMonth] = useState("all");
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  // --------------------------
+
+  const SPECIES_LIST = ["Hog", "Cow", "Chicken", "Carabao", "Goat", "Ducks"];
   const VALID_BARANGAYS = [
     "Aplaya", "Balibago", "Caingin", "Dila", "Dita", "Don Jose", "Ibaba",
     "Kanluran", "Labas", "Macabling", "Malitlit", "Malusak", "Market Area",
     "Pooc", "Pulong Santa Cruz", "Santo Domingo", "Sinalhan", "Tagapo"
   ];
 
-  const barangayMarkers = [
-    { name: "Aplaya", pos: [14.311447647928247, 121.12295824505297] },
-    { name: "Balibago", pos: [14.295631618456648, 121.10489172491852] },
-    { name: "Caingin", pos: [14.299473223012534, 121.12806320633392] },
-    { name: "Dila", pos: [14.289202184158825, 121.10832114496783] },
-    { name: "Dita", pos: [14.282845067544617, 121.11142012167006] },
-    { name: "Don Jose", pos: [14.257486081129576, 121.06580879098131] },
-    { name: "Ibaba", pos: [14.315161825716983, 121.11809931407876] },
-    { name: "Kanluran", pos: [14.313601325785083, 121.10764857202216] },
-    { name: "Labas", pos: [14.307734048466843, 121.10983860633617] },
-    { name: "Macabling", pos: [14.301199316348956, 121.09888438303827] },
-    { name: "Malitlit", pos: [14.269970761081264, 121.11112449098484] },
-    { name: "Malusak", pos: [14.309492293786986, 121.10986404497345] },
-    { name: "Market Area", pos: [14.319987629123704, 121.11197280633958] },
-    { name: "Pooc", pos: [14.301363073316246, 121.11165544497128] },
-    { name: "Pulong Santa Cruz", pos: [14.278058523627218, 121.08216258303183] },
-    { name: "Santo Domingo", pos: [14.229227246171881, 121.04817556767753] },
-    { name: "Sinalhan", pos: [14.33095501762172, 121.11154140634267] },
-    { name: "Tagapo", pos: [14.319751565876894, 121.10261444497627] }
-  ];
-
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Sync data processing with filters
+  useEffect(() => {
+    if (rawTransactions.length > 0 || !loading) {
+      applyFilters();
+    }
+  }, [rawTransactions, selectedMonth, selectedYear, customStart, customEnd, filterMode]);
 
   const fetchData = async () => {
     try {
       const res = await fetch("http://localhost:3001/api/transactions");
       const data = await res.json();
       const txData = Array.isArray(data) ? data : [];
-      processData(txData);
+      setRawTransactions(txData);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const applyFilters = () => {
+    let filtered = rawTransactions.filter(tx => {
+      const txDate = new Date(tx.timestamp);
+      if (isNaN(txDate)) return false;
+
+      if (filterMode === "custom") {
+        const start = customStart ? new Date(customStart) : new Date("1900-01-01");
+        const end = customEnd ? new Date(customEnd) : new Date("2100-12-31");
+        end.setHours(23, 59, 59, 999);
+        return txDate >= start && txDate <= end;
+      } else {
+        const yearMatch = txDate.getFullYear() === Number(selectedYear);
+        const monthMatch = selectedMonth === "all" || txDate.getMonth() === Number(selectedMonth);
+        return yearMatch && monthMatch;
+      }
+    });
+    processData(filtered);
+  };
+
+  const handleReset = () => {
+    setFilterMode("preset");
+    setSelectedMonth("all");
+    setSelectedYear(currentYear);
+    setCustomStart("");
+    setCustomEnd("");
   };
 
   const processData = (txList) => {
@@ -94,7 +110,7 @@ export default function AnimalMovement() {
 
     SPECIES_LIST.forEach(s => speciesCounts[s] = 0);
     VALID_BARANGAYS.forEach(name => {
-      brgyGroup[name] = { total: 0, healthy: 0, sick: 0, unverified: 0 };
+      brgyGroup[name] = { total: 0, healthy: 0, mild: 0, critical: 0, sick: 0, unverified: 0 };
     });
 
     txList.forEach((tx) => {
@@ -111,9 +127,14 @@ export default function AnimalMovement() {
         if (severity === "safe" || severity === "healthy") {
           gHealthy += qty;
           brgyGroup[match].healthy += qty;
-        } else if (severity === "mild" || severity === "dangerous" || severity === "sick") {
+        } else if (severity === "critical" || severity === "dangerous") {
           gSick += qty;
           brgyGroup[match].sick += qty;
+          brgyGroup[match].critical += qty;
+        } else if (severity === "mild" || severity === "sick") {
+          gSick += qty;
+          brgyGroup[match].sick += qty;
+          brgyGroup[match].mild += qty;
         } else {
           gUnverified += qty;
           brgyGroup[match].unverified += qty;
@@ -146,16 +167,159 @@ export default function AnimalMovement() {
     setTopBarangays(topBrgys);
   };
 
+  const getColor = (stats) => {
+    if (stats.critical > 0) return '#ef4444'; 
+    if (stats.mild > 0) return '#f97316';     
+    return '#10b981';                         
+  };
+
+  const mapStyle = (feature) => {
+    const brgyName = feature.properties.NAME_3;
+    const stats = barangayMapStats[brgyName] || { mild: 0, critical: 0 };
+    return {
+      fillColor: getColor(stats),
+      weight: 1.5,
+      opacity: 1,
+      color: 'white',
+      fillOpacity: 0.7
+    };
+  };
+
+  const onEachBarangay = (feature, layer) => {
+    const brgyName = feature.properties.NAME_3;
+    
+    // We bind the tooltip, but we need to make sure the content 
+    // is generated based on the LATEST barangayMapStats
+    layer.on({
+      mouseover: (e) => {
+        const l = e.target;
+        l.setStyle({ weight: 3, color: '#6366f1', fillOpacity: 0.85 });
+        
+        // Refresh the tooltip content on every hover to get filtered data
+        const currentStats = barangayMapStats[brgyName] || { total: 0, healthy: 0, mild: 0, critical: 0, unverified: 0 };
+        
+        l.setTooltipContent(`
+          <div style="font-family: sans-serif; padding: 8px; min-width: 160px;">
+            <strong style="text-transform: uppercase; border-bottom: 1px solid #eee; display: block; margin-bottom: 5px; font-size: 13px;">
+              Brgy ${brgyName}
+            </strong>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+              <span style="color: #64748b; font-weight: bold;">HEALTHY:</span> 
+              <span style="font-weight: 900; color: #059669;">${currentStats.healthy.toLocaleString()}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+              <span style="color: #64748b; font-weight: bold;">MILD:</span> 
+              <span style="font-weight: 900; color: #f97316;">${currentStats.mild.toLocaleString()}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+              <span style="color: #64748b; font-weight: bold;">CRITICAL:</span> 
+              <span style="font-weight: 900; color: #dc2626;">${currentStats.critical.toLocaleString()}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+              <span style="color: #64748b; font-weight: bold;">UNVERIFIED:</span> 
+              <span style="font-weight: 900; color: #d97706;">${currentStats.unverified.toLocaleString()}</span>
+            </div>
+            <div style="border-top: 1px solid #eee; padding-top: 4px; display: flex; justify-content: space-between; font-size: 12px; font-weight: 900;">
+              <span>TOTAL:</span> <span>${currentStats.total.toLocaleString()}</span>
+            </div>
+          </div>
+        `);
+      },
+      mouseout: (e) => {
+        const l = e.target;
+        l.setStyle({ weight: 1.5, color: 'white', fillOpacity: 0.7 });
+      }
+    });
+
+    // Initial binding
+    layer.bindTooltip("", { sticky: true, opacity: 0.95 });
+  };
+
   if (loading) return (
-    <div className="fixed inset-0 flex items-center justify-center bg-slate-50/80 backdrop-blur-sm z-50">
-      <div className="bg-white/90 p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 flex flex-col items-center">
-        <h2 className="text-xl font-black text-slate-800 tracking-tight uppercase">Loading Movement Data</h2>
+    <div className="fixed inset-0 flex items-center justify-center bg-slate-50/30 backdrop-blur-sm z-[1000]">
+      <div className="bg-white/80 p-10 rounded-[2.5rem] shadow-2xl border border-white flex flex-col items-center">
+        <div className="relative w-20 h-20 mb-6">
+          <div className="absolute inset-0 rounded-full border-4 border-slate-100"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-t-green-600 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-4 h-4 bg-green-500 rounded-full animate-pulse shadow-[0_0_15px_rgba(34,197,94,0.6)]"></div>
+          </div>
+        </div>
+        <h2 className="text-xl font-black text-slate-800 tracking-tight uppercase">System Syncing</h2>
+        <p className="text-slate-500 font-bold text-xs mt-2 tracking-[0.2em] animate-pulse">
+          Fetching Movement data...
+        </p>
       </div>
     </div>
   );
 
   return (
-    <div className="w-full bg-gradient-to-br from-slate-50 via-green-50/20 to-emerald-50/10 min-h-screen pt-24 pb-16 px-6 lg:px-10 font-sans relative">
+    <div className="w-full bg-gradient-to-br from-slate-50 via-green-50/20 to-emerald-50/10 min-h-screen pt-12 pb-16 px-6 lg:px-10 font-sans relative">
+      
+      {/* --- CENTERED DATE FILTER --- */}
+      <div className="max-w-7xl mx-auto mb-10 flex justify-center print:hidden">
+        <div className="w-full bg-white rounded-[2.5rem] shadow-lg border border-slate-200/60 p-6 flex flex-col lg:flex-row items-center justify-between gap-6">
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <div className="bg-slate-100 p-1.5 rounded-2xl flex gap-1">
+              <button 
+                onClick={() => setFilterMode("preset")}
+                className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all ${filterMode === 'preset' ? 'bg-white shadow-sm text-green-600' : 'text-slate-400'}`}
+              >
+                Standard
+              </button>
+              <button 
+                onClick={() => setFilterMode("custom")}
+                className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all ${filterMode === 'custom' ? 'bg-white shadow-sm text-green-600' : 'text-slate-400'}`}
+              >
+                Custom Range
+              </button>
+            </div>
+
+            <div className={`flex gap-3 transition-all ${filterMode === 'custom' ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
+              <select 
+                value={selectedMonth} 
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-green-500/20"
+              >
+                <option value="all">Full Year</option>
+                {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+              </select>
+              <select 
+                value={selectedYear} 
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-bold text-slate-700 outline-none"
+              >
+                {[currentYear, currentYear-1, currentYear-2].map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+
+            <div className={`flex items-center gap-3 transition-all ${filterMode === 'preset' ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
+              <input 
+                type="date" 
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-bold text-slate-700 outline-none"
+              />
+              <span className="text-slate-300 font-black">TO</span>
+              <input 
+                type="date" 
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-bold text-slate-700 outline-none"
+              />
+            </div>
+          </div>
+
+          <button 
+            onClick={handleReset}
+            className="text-slate-400 hover:text-red-500 font-black text-xs uppercase tracking-widest transition-colors flex items-center gap-2"
+          >
+            <span>🔄</span> Reset to {currentYear}
+          </button>
+        </div>
+      </div>
+      {/* ---------------------------- */}
+
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 lg:gap-12 items-stretch">
         
         {/* SIDEBAR */}
@@ -193,30 +357,45 @@ export default function AnimalMovement() {
             </div>
           </div>
 
-          {/* RESTORED: Species Bar Chart */}
           <div className="bg-white rounded-3xl border border-slate-200 mt-8 p-6 shadow-sm">
-            <h3 className="text-base font-black uppercase tracking-widest text-slate-500 mb-6 text-center">Livestock Species Distribution</h3>
-            <div className="h-56">
-              <Bar
-                data={{
-                  labels: SPECIES_LIST,
-                  datasets: [{
-                    data: SPECIES_LIST.map(s => transactions.speciesCounts[s] || 0),
-                    backgroundColor: ["#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6", "#10b981"],
-                    borderRadius: 12,
-                    hoverBackgroundColor: ["#d97706", "#2563eb", "#dc2626", "#7c3aed", "#059669"]
-                  }]
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: { legend: { display: false } },
-                  scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 12, weight: 'bold' }, color: '#475569' } },
-                    y: { display: false }
-                  }
-                }}
-              />
+            <h3 className="text-base font-black uppercase tracking-widest text-slate-500 mb-6 text-center">
+              Livestock Species Distribution
+            </h3>
+            <div className="h-64">
+              {transactions?.speciesCounts ? (
+                <Pie
+                  data={{
+                    labels: SPECIES_LIST,
+                    datasets: [{
+                      data: SPECIES_LIST.map(s => transactions.speciesCounts[s] || 0),
+                      backgroundColor: ["#f59e0b", "#3b82f6", "#ef4444", "#06b6d4", "#10b981", "#6366f1"],
+                      hoverBackgroundColor: ["#d97706", "#2563eb", "#dc2626", "#0891b2", "#059669", "#4f46e5"],
+                      borderWidth: 2,
+                      borderColor: '#ffffff',
+                    }]
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                      legend: { 
+                        display: true, 
+                        position: 'bottom',
+                        labels: {
+                          usePointStyle: true,
+                          padding: 15,
+                          font: { size: 10, weight: 'bold' },
+                          color: '#475569'
+                        }
+                      }
+                    }
+                  }}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-slate-400 font-bold uppercase text-[10px]">
+                  Synchronizing Species Data...
+                </div>
+              )}
             </div>
           </div>
 
@@ -234,7 +413,7 @@ export default function AnimalMovement() {
         <div className="flex-1 flex flex-col gap-8">
           <div className="group bg-white rounded-[3.5rem] border border-slate-200 shadow-xl p-8 lg:p-10 flex flex-col flex-grow min-h-[750px] relative z-0">
             <div className="mb-8 px-2">
-              <h2 className="text-4xl font-black text-slate-900">Livestock Geographic Heatmap</h2>
+              <h2 className="text-4xl font-black text-slate-900">Livestock Geographic Map</h2>
               <p className="text-sm font-bold text-slate-500 uppercase tracking-[0.25em] mt-2">
                 Real-Time Health Monitoring
               </p>
@@ -242,45 +421,39 @@ export default function AnimalMovement() {
 
             <div className="rounded-[2.5rem] overflow-hidden border border-slate-200 shadow-inner flex-grow relative z-0">
               <MapContainer
-                center={[14.28, 121.09]}
-                zoom={13}
+                center={[14.311, 121.11]}
+                zoom={12.5}
                 zoomControl={false}
                 style={{ height: "100%", width: "100%", zIndex: 0 }}
               >
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                {barangayMarkers.map((brgy) => {
-                  const stats = barangayMapStats[brgy.name] || { total: 0, healthy: 0, sick: 0, unverified: 0 };
-                  return (
-                    <Marker key={brgy.name} position={brgy.pos}>
-                      <MapTooltip direction="top" offset={[0, -32]} opacity={0.95}>
-                        <div className="font-sans p-4 min-w-[220px] bg-white rounded-xl shadow-lg border border-slate-200">
-                          <p className="font-black text-slate-900 uppercase text-sm border-b border-slate-200 pb-2 mb-2">
-                            Brgy {brgy.name}
-                          </p>
-                          <div className="space-y-2 text-[11px]">
-                            <div className="flex justify-between">
-                              <span className="text-slate-500 font-bold uppercase">Healthy:</span>
-                              <span className="font-black text-emerald-700">{stats.healthy.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-500 font-bold uppercase">Sick:</span>
-                              <span className="font-black text-red-700">{stats.sick.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-500 font-bold uppercase">Unverified:</span>
-                              <span className="font-black text-amber-600">{stats.unverified.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between pt-2 border-t border-slate-200 mt-1">
-                              <span className="font-black text-slate-700 uppercase">Total:</span>
-                              <span className="font-black text-slate-900 text-sm">{stats.total.toLocaleString()}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </MapTooltip>
-                    </Marker>
-                  );
-                })}
+                
+                <GeoJSON 
+                  key={`geojson-${JSON.stringify(barangayMapStats)}`} 
+                  data={santaRosaData} 
+                  style={mapStyle} 
+                  onEachFeature={onEachBarangay} 
+                />
+
                 <ZoomControl position="bottomright" />
+
+                <div className="absolute top-6 left-6 bg-white/90 backdrop-blur-md p-5 rounded-3xl shadow-2xl border border-white z-[1000] pointer-events-none">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Health Legend</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-[#10b981]"></div>
+                      <span className="text-xs font-black text-slate-700">No Cases (Healthy)</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-[#f97316]"></div>
+                      <span className="text-xs font-black text-slate-700">Warning (Mild Cases)</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-[#ef4444]"></div>
+                      <span className="text-xs font-black text-slate-700">Critical (ASF/Flu/FMD)</span>
+                    </div>
+                  </div>
+                </div>
               </MapContainer>
             </div>
           </div>
@@ -290,7 +463,7 @@ export default function AnimalMovement() {
               Top 5 Movement Activity Barangays
             </h3>
             <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
-              {topBarangays.map((brgy) => (
+              {topBarangays.length > 0 ? topBarangays.map((brgy) => (
                 <div 
                   key={brgy.name}
                   className="flex justify-between items-center bg-slate-50 p-6 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-all hover:shadow-md"
@@ -298,8 +471,10 @@ export default function AnimalMovement() {
                   <div>
                     <p className="font-bold text-slate-900 text-lg">Brgy {brgy.name}</p>
                     <p className="text-sm text-slate-600">
-                      {brgy.sick > 0 ? (
-                        <span className="text-red-600 font-bold">{brgy.sick.toLocaleString()} at risk</span>
+                      {brgy.critical > 0 ? (
+                        <span className="text-red-600 font-bold">{brgy.critical} CRITICAL CASES</span>
+                      ) : brgy.mild > 0 ? (
+                        <span className="text-orange-600 font-bold">{brgy.mild} mild cases</span>
                       ) : "All healthy"}
                     </p>
                   </div>
@@ -308,7 +483,50 @@ export default function AnimalMovement() {
                     <p className="text-xs text-slate-500 uppercase tracking-wider">Total Heads</p>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="p-10 text-center text-slate-400 font-black uppercase text-xs">
+                  No data found for selected date range
+                </div>
+              )}
+            </div>
+          </div>
+          {/* MOVEMENT ANALYTICS SUMMARY SECTION */}
+          <div className="mt-16 flex justify-center max-w-7xl mx-auto">
+            <div className="group bg-gradient-to-r from-indigo-50 via-emerald-50 to-blue-50 p-10 lg:p-12 rounded-[3rem] border border-indigo-200/60 shadow-2xl w-full transition-all duration-500 hover:shadow-3xl hover:-translate-y-2 text-center">
+              <h3 className="text-3xl lg:text-4xl font-black text-indigo-900 mb-6 tracking-tight uppercase">
+                Movement Analytics Summary
+              </h3>
+              
+              <div className="space-y-6 text-slate-800 leading-relaxed text-lg max-w-4xl mx-auto">
+                <p>
+                  Current tracking confirms <strong>{transactions.healthy.toLocaleString()}</strong> healthy heads and 
+                  <strong> {transactions.sick.toLocaleString()}</strong> at-risk animals in transit. 
+                  The verified data integrity ratio currently stands at <strong>{transactions.verifiedRatio}</strong>.
+                </p>
+
+                {transactions.sick > 0 ? (
+                  <p className="text-red-700 font-medium bg-red-50/50 py-3 rounded-2xl border border-red-100 px-6">
+                    <strong>Containment Protocol:</strong> {transactions.sick} heads detected with potential pathogens. 
+                    Movements in high-risk Barangays (Red Zones) should be restricted to prevent cross-contamination.
+                  </p>
+                ) : (
+                  <p className="text-emerald-700 font-medium bg-emerald-50/50 py-3 rounded-2xl border border-emerald-100 px-6">
+                    <strong>Clean Transit:</strong> No critical infections detected in current movements. 
+                    Biosecurity certificates are clear for the selected period.
+                  </p>
+                )}
+
+                <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-slate-600 font-bold uppercase text-sm pt-4 border-t border-indigo-100/50">
+                  <span>Total Slaughtered: <span className="text-slate-900">{transactions.logistics.slaughtered.toLocaleString()}</span></span>
+                  <span className="hidden sm:inline text-indigo-200">•</span>
+                  <span>Total Exported: <span className="text-slate-900">{transactions.logistics.exported.toLocaleString()}</span></span>
+                </div>
+
+                <p className="text-slate-500 italic mt-6 text-sm">
+                  Geo-spatial movement data verified via Santa Rosa Livestock Blockchain Surveillance. 
+                  Always cross-reference with Bureau of Animal Industry (BAI) transit permits.
+                </p>
+              </div>
             </div>
           </div>
         </div>

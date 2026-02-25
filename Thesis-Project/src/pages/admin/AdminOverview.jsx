@@ -1,18 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Tooltip as MapTooltip } from "react-leaflet";
+import { MapContainer, TileLayer, GeoJSON, ZoomControl } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import icon from "leaflet/dist/images/marker-icon.png";
-import iconShadow from "leaflet/dist/images/marker-shadow.png";
 
-// Leaflet icon fix
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
-L.Marker.prototype.options.icon = DefaultIcon;
+// Updated import path based on your file tree
+import santaRosaData from "../../assets/data/santa_rosa.json";
 
 export default function AdminOverview() {
   const [loading, setLoading] = useState(true);
@@ -23,33 +15,12 @@ export default function AdminOverview() {
     healthy: 0
   });
   const [barangayMapStats, setBarangayMapStats] = useState({});
-  const santaRosaCenter = [14.28, 121.09];
+  const santaRosaCenter = [14.311, 121.11];
 
   const VALID_BARANGAYS = [
     "Aplaya", "Balibago", "Caingin", "Dila", "Dita", "Don Jose", "Ibaba",
     "Kanluran", "Labas", "Macabling", "Malitlit", "Malusak", "Market Area",
     "Pooc", "Pulong Santa Cruz", "Santo Domingo", "Sinalhan", "Tagapo"
-  ];
-
-  const barangayMarkers = [
-    { name: "Aplaya", pos: [14.311447647928247, 121.12295824505297] },
-    { name: "Balibago", pos: [14.295631618456648, 121.10489172491852] },
-    { name: "Caingin", pos: [14.299473223012534, 121.12806320633392] },
-    { name: "Dila", pos: [14.289202184158825, 121.10832114496783] },
-    { name: "Dita", pos: [14.282845067544617, 121.11142012167006] },
-    { name: "Don Jose", pos: [14.257486081129576, 121.06580879098131] },
-    { name: "Ibaba", pos: [14.315161825716983, 121.11809931407876] },
-    { name: "Kanluran", pos: [14.313601325785083, 121.10764857202216] },
-    { name: "Labas", pos: [14.307734048466843, 121.10983860633617] },
-    { name: "Macabling", pos: [14.301199316348956, 121.09888438303827] },
-    { name: "Malitlit", pos: [14.269970761081264, 121.11112449098484] },
-    { name: "Malusak", pos: [14.309492293786986, 121.10986404497345] },
-    { name: "Market Area", pos: [14.319987629123704, 121.11197280633958] },
-    { name: "Pooc", pos: [14.301363073316246, 121.11165544497128] },
-    { name: "Pulong Santa Cruz", pos: [14.278058523627218, 121.08216258303183] },
-    { name: "Santo Domingo", pos: [14.229227246171881, 121.04817556767753] },
-    { name: "Sinalhan", pos: [14.33095501762172, 121.11154140634267] },
-    { name: "Tagapo", pos: [14.319751565876894, 121.10261444497627] }
   ];
 
   useEffect(() => {
@@ -81,7 +52,6 @@ export default function AdminOverview() {
       const qty = Number(tx.quantity) || 0;
       const severity = (tx.severity || "").toLowerCase().trim();
 
-      // Skip logistics
       if (loc.includes("slaughterhouse") || loc.includes("exported")) return;
 
       const match = VALID_BARANGAYS.find(b => loc.includes(b.toLowerCase()));
@@ -90,13 +60,14 @@ export default function AdminOverview() {
         if (severity === "safe" || severity === "healthy") {
           gHealthy += qty;
           brgyGroup[match].healthy += qty;
+        } else if (severity === "dangerous" || severity === "critical" || severity === "sick") {
+          // If severity is critical/dangerous, mark as critical
+          gCritical += qty;
+          brgyGroup[match].critical += qty;
+          brgyGroup[match].sick += qty;
         } else if (severity === "mild") {
           gMild += qty;
           brgyGroup[match].mild += qty;
-          brgyGroup[match].sick += qty;
-        } else if (severity === "dangerous" || severity === "critical") {
-          gCritical += qty;
-          brgyGroup[match].critical += qty;
           brgyGroup[match].sick += qty;
         } else {
           brgyGroup[match].unverified += qty;
@@ -113,6 +84,68 @@ export default function AdminOverview() {
     setBarangayMapStats(brgyGroup);
   };
 
+  // --- UPDATED GEOGRAPHIC COLOR LOGIC ---
+  const getColor = (brgyStats) => {
+    if (brgyStats.critical > 0) return '#ef4444'; // Red if any critical cases exist
+    if (brgyStats.mild > 0) return '#f97316';     // Orange if only mild cases exist
+    return '#10b981';                             // Green if 0 sick
+  };
+
+  const mapStyle = (feature) => {
+    const brgyName = feature.properties.NAME_3;
+    const brgyStats = barangayMapStats[brgyName] || { mild: 0, critical: 0 };
+    return {
+      fillColor: getColor(brgyStats),
+      weight: 1.5,
+      opacity: 1,
+      color: 'white',
+      fillOpacity: 0.7
+    };
+  };
+
+  const onEachBarangay = (feature, layer) => {
+    const brgyName = feature.properties.NAME_3;
+    const stats = barangayMapStats[brgyName] || { healthy: 0, mild: 0, critical: 0, unverified: 0, total: 0 };
+
+    layer.on({
+      mouseover: (e) => {
+        const l = e.target;
+        l.setStyle({ weight: 3, color: '#6366f1', fillOpacity: 0.85 });
+      },
+      mouseout: (e) => {
+        const l = e.target;
+        l.setStyle({ weight: 1.5, color: 'white', fillOpacity: 0.7 });
+      }
+    });
+
+    layer.bindTooltip(`
+      <div style="font-family: sans-serif; padding: 8px; min-width: 160px;">
+        <strong style="text-transform: uppercase; border-bottom: 1px solid #eee; display: block; margin-bottom: 5px; font-size: 13px;">
+          Brgy ${brgyName}
+        </strong>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+          <span style="color: #64748b; font-weight: bold;">HEALTHY:</span> 
+          <span style="font-weight: 900; color: #059669;">${stats.healthy.toLocaleString()}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+          <span style="color: #64748b; font-weight: bold;">MILD:</span> 
+          <span style="font-weight: 900; color: #f97316;">${stats.mild.toLocaleString()}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+          <span style="color: #64748b; font-weight: bold;">CRITICAL:</span> 
+          <span style="font-weight: 900; color: #dc2626;">${stats.critical.toLocaleString()}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+          <span style="color: #64748b; font-weight: bold;">UNVERIFIED:</span> 
+          <span style="font-weight: 900; color: #d97706;">${stats.unverified.toLocaleString()}</span>
+        </div>
+        <div style="border-top: 1px solid #eee; padding-top: 4px; display: flex; justify-content: space-between; font-size: 12px; font-weight: 900;">
+          <span>TOTAL:</span> <span>${stats.total.toLocaleString()}</span>
+        </div>
+      </div>
+    `, { sticky: true, opacity: 0.95 });
+  };
+
   if (loading) return <div className="p-10 text-center font-bold">Syncing Disease Data...</div>;
 
   return (
@@ -123,7 +156,6 @@ export default function AdminOverview() {
 
       {/* KPIs Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-        {/* Static Vaccination KPI */}
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-indigo-100">
           <h2 className="text-xs font-black text-indigo-500 uppercase tracking-widest mb-2">Vaccination</h2>
           <p className="text-4xl font-black text-gray-900">0%</p>
@@ -131,7 +163,7 @@ export default function AdminOverview() {
         </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-red-100">
-          <h2 className="text-xs font-black text-red-500 uppercase tracking-widest mb-2">Total Disease</h2>
+          <h2 className="text-xs font-black text-red-500 uppercase tracking-widest mb-2">Total Sick</h2>
           <p className="text-4xl font-black text-gray-900">{stats.totalDisease.toLocaleString()}</p>
           <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Confirmed Cases</p>
         </div>
@@ -158,31 +190,40 @@ export default function AdminOverview() {
       {/* Heatmap Section */}
       <div className="bg-white p-6 rounded-2xl shadow-lg mb-8 border border-slate-100">
         <h2 className="text-2xl font-black text-gray-800 mb-4 uppercase">Barangay Outbreak Heatmap</h2>
-        <div className="rounded-xl overflow-hidden border border-slate-200 shadow-inner">
+        <div className="rounded-xl overflow-hidden border border-slate-200 shadow-inner relative">
           <MapContainer
             center={santaRosaCenter}
-            zoom={13}
+            zoom={12.5}
+            zoomControl={false}
             style={{ height: "500px", width: "100%", zIndex: 10 }}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            {barangayMarkers.map((brgy) => {
-              const bStats = barangayMapStats[brgy.name] || { healthy: 0, sick: 0, total: 0, unverified: 0 };
-              return (
-                <Marker key={brgy.name} position={brgy.pos}>
-                  <MapTooltip direction="top" offset={[0, -20]} opacity={0.9}>
-                    <div className="p-2 min-w-[150px]">
-                      <p className="font-black border-b pb-1 mb-2 uppercase text-slate-800">Brgy. {brgy.name}</p>
-                      <div className="space-y-1 text-xs">
-                        <div className="flex justify-between"><span>Healthy:</span> <span className="font-bold text-emerald-600">{bStats.healthy}</span></div>
-                        <div className="flex justify-between"><span>Sick:</span> <span className="font-bold text-red-600">{bStats.sick}</span></div>
-                        <div className="flex justify-between"><span>Unverified:</span> <span className="font-bold text-slate-500">{bStats.unverified}</span></div>
-                        <div className="flex justify-between border-t pt-1 mt-1"><strong>Total:</strong> <strong>{bStats.total}</strong></div>
-                      </div>
-                    </div>
-                  </MapTooltip>
-                </Marker>
-              );
-            })}
+            
+            <GeoJSON 
+              data={santaRosaData} 
+              style={mapStyle} 
+              onEachFeature={onEachBarangay} 
+            />
+
+            <ZoomControl position="bottomright" />
+
+            <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white z-[1000] pointer-events-none">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Disease Legend</p>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#10b981]"></div>
+                  <span className="text-[10px] font-black text-slate-700">No Cases (Healthy)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#f97316]"></div>
+                  <span className="text-[10px] font-black text-slate-700">Warning (Mild)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></div>
+                  <span className="text-[10px] font-black text-slate-700">Critical (ASF/Flu)</span>
+                </div>
+              </div>
+            </div>
           </MapContainer>
         </div>
       </div>
@@ -207,7 +248,7 @@ export default function AdminOverview() {
                 const isActive = bStats.sick > 0;
                 return (
                   <tr key={name} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-4 px-4 font-bold text-slate-700">Brgy. {name}</td>
+                    <td className="py-4 px-4 font-bold text-slate-700">{name}</td>
                     <td className="py-4 px-4 font-semibold text-blue-600">{bStats.mild.toLocaleString()}</td>
                     <td className="py-4 px-4 font-semibold text-red-600">{bStats.critical.toLocaleString()}</td>
                     <td className="py-4 px-4 font-black text-slate-900">{bStats.sick.toLocaleString()}</td>

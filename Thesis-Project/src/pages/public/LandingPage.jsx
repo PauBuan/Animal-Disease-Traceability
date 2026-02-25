@@ -43,8 +43,21 @@ export default function LandingPage() {
   const [totalAnimals, setTotalAnimals] = useState(0);
   const [lastSyncTimestamp, setLastSyncTimestamp] = useState(new Date());
   const [timeAgo, setTimeAgo] = useState("Just now");
+  // --- ADDED FOR ALERTS ---
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [history, setHistory] = useState([]);
 
-  const SPECIES_LIST = ["Hog", "Cow", "Chicken", "Sheep", "Goat"];
+  const fetchAlertHistory = async () => {
+    try {
+      const response = await fetch("http://localhost:3001/api/alert-history");
+      if (response.ok) {
+        const data = await response.json();
+        setHistory(data);
+      }
+    } catch (err) { console.error("Failed to fetch history:", err); }
+  };
+
+  const SPECIES_LIST = ["Hog", "Cow", "Chicken", "Carabao", "Goat", "Ducks"];
 
   const fetchDashboardData = useCallback(async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
@@ -128,6 +141,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     fetchDashboardData();
+    fetchAlertHistory();
     const autoRefresh = setInterval(() => fetchDashboardData(), 300000);
     return () => clearInterval(autoRefresh);
   }, [fetchDashboardData]);
@@ -233,10 +247,16 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div>
-                <p className="text-xs font-black text-gray-500 uppercase tracking-widest mb-2">System Status</p>
-                <p className="text-3xl font-bold text-emerald-600">Fully Operational</p>
-                <p className="text-sm text-gray-600 mt-1">99.98% uptime • No alerts</p>
+              <div className="pt-2">
+                <p className="text-xs font-black text-gray-500 uppercase tracking-widest mb-2">Broadcast Alert</p>
+                <p className="text-3xl font-bold text-emerald-600">Active System</p>
+                <p className="text-sm text-gray-600 mt-1 mb-4">Official Veterinary Logs</p>
+                <button 
+                  onClick={() => setIsHistoryModalOpen(true)}
+                  className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-md active:scale-95"
+                >
+                  View Alert History
+                </button>
               </div>
             </div>
           </div>
@@ -254,8 +274,8 @@ export default function LandingPage() {
           </h2>
           <p className="text-gray-700 text-xl leading-relaxed font-medium">
             Real-time visibility into animal health, movement patterns, disease risks, and supply chain integrity. 
-            Every record is cryptographically secured on the blockchain — ensuring data authenticity for farmers, 
-            veterinarians, meat inspectors, and local government units in Santa Rosa City, Laguna.
+            By anchoring critical checkpoints to the blockchain, we ensure a tamper-proof audit trail—guaranteeing data authenticity for farmers, veterinarians, 
+            meat inspectors, and local government units in Santa Rosa City, Laguna.
           </p>
         </div>
 
@@ -278,7 +298,7 @@ export default function LandingPage() {
                 optimize resource allocation and ensure precise logistics for city-wide safety programs.
               </p>
 
-              {/* Multi-colored Bar Chart */}
+              {/* Multi-colored Bar Chart (Updated for 6 Species) */}
               <div className="h-64 mb-6">
                 <Bar 
                   data={{
@@ -290,8 +310,9 @@ export default function LandingPage() {
                         "#f59e0b", // Hog - Amber
                         "#3b82f6", // Cow - Blue
                         "#ef4444", // Chicken - Red
-                        "#8b5cf6", // Sheep - Purple
-                        "#10b981"  // Goat - Emerald
+                        "#06b6d4", // Carabao - Cyan/Deep Blue
+                        "#10b981", // Goat - Emerald
+                        "#6366f1"  // Ducks - Indigo
                       ], 
                       borderRadius: 12 
                     }]
@@ -300,10 +321,12 @@ export default function LandingPage() {
                 />
               </div>
 
-              {/* Animal Icon Row */}
+              {/* Animal Icon Row (Updated: Removed Sheep, Added Carabao & Ducks) */}
               <div className="flex justify-around items-center bg-slate-50 rounded-2xl py-4 mb-6 border border-slate-100">
-                {["🐖", "🐄", "🐓", "🐑", "🐐"].map((emoji, i) => (
-                  <span key={i} className="text-3xl filter drop-shadow-sm">{emoji}</span>
+                {["🐖", "🐄", "🐓", "🐃", "🐐", "🦆"].map((emoji, i) => (
+                  <span key={i} className="text-3xl filter drop-shadow-sm transition-transform group-hover:scale-110">
+                    {emoji}
+                  </span>
                 ))}
               </div>
             </div>
@@ -483,6 +506,154 @@ export default function LandingPage() {
             </button>
           </div>
         </div>
+
+        {/* MODAL FOR HISTORY ALERT LOGS */}
+        {isHistoryModalOpen && (
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 sm:p-6">
+            {/* Backdrop with enhanced blur */}
+            <div
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md transition-opacity"
+              onClick={() => setIsHistoryModalOpen(false)}
+            />
+
+            {/* Modal card */}
+            <div className="
+              relative w-full max-w-3xl max-h-[85vh] 
+              bg-white rounded-[2.5rem] shadow-[0_20px_70px_-10px_rgba(0,0,0,0.3)] 
+              flex flex-col overflow-hidden
+              border border-white/20
+              animate-in fade-in zoom-in duration-300
+            ">
+              {/* Header */}
+              <div className="
+                px-8 py-8 
+                border-b border-slate-100 
+                flex items-center justify-between 
+                bg-white sticky top-0 z-10
+              ">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-white-900 rounded-2xl flex items-center justify-center text-2xl shadow-lg">
+                    📜
+                  </div>
+                  <div>
+                    <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight uppercase">
+                      Alert History
+                    </h2>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsHistoryModalOpen(false)}
+                  className="
+                    w-12 h-12 flex items-center justify-center rounded-full 
+                    bg-slate-50 text-slate-400 hover:text-red-500 
+                    hover:bg-red-50 hover:rotate-90
+                    transition-all duration-300
+                  "
+                  aria-label="Close"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto px-6 sm:px-10 py-8 bg-[#F8FAFC]">
+                {history.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full py-20 text-center">
+                    <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center text-4xl mb-6 grayscale opacity-50">
+                      📂
+                    </div>
+                    <p className="text-slate-800 font-black text-2xl uppercase">
+                      No Transmission Logs
+                    </p>
+                    <p className="text-slate-500 mt-2 text-lg font-medium">
+                      Future alert broadcasts will be archived here.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {history.map((item) => (
+                      <div
+                        key={item._id}
+                        className="
+                          relative bg-white rounded-[2rem] 
+                          border border-slate-200/60 
+                          p-6 sm:p-8 
+                          hover:shadow-xl hover:shadow-slate-200/50 hover:-translate-y-1
+                          transition-all duration-300
+                          flex flex-col gap-5
+                        "
+                      >
+                        {/* Visual Status Indicator (Side Bar) */}
+                        <div className={`absolute left-0 top-8 bottom-8 w-1.5 rounded-r-full ${
+                          item.severity === 'Critical' ? 'bg-red-500' : 
+                          item.severity === 'Warning' ? 'bg-amber-500' : 'bg-emerald-500'
+                        }`} />
+
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <span className={`
+                              px-5 py-1.5 rounded-full text-xs font-black uppercase tracking-tighter
+                              ${
+                                item.severity === 'Critical'
+                                  ? 'bg-red-600 text-white'
+                                  : item.severity === 'Warning'
+                                  ? 'bg-amber-500 text-white'
+                                  : 'bg-emerald-600 text-white'
+                              }
+                            `}>
+                              {item.severity}
+                            </span>
+                            <time className="text-sm font-black text-slate-400 uppercase tracking-widest">
+                              {new Date(item.date).toLocaleDateString('en-US', {
+                                month: 'long', day: 'numeric', year: 'numeric'
+                              })}
+                            </time>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 text-xs font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">
+                            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                            RECORD-ID: {item._id.slice(-8).toUpperCase()}
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="text-2xl font-black text-slate-900 leading-tight mb-3 uppercase tracking-tight">
+                            {item.title}
+                          </h4>
+                          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-lg text-slate-600 font-medium">
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400">Species:</span> 
+                              <span className="text-slate-900 font-bold">{item.species}</span>
+                            </div>
+                            <div className="hidden sm:block text-slate-300">|</div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400">Barangay:</span> 
+                              <span className="text-slate-900 font-bold">{item.targetBarangay}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-10 py-6 border-t border-slate-100 bg-white flex justify-between items-center">
+                <p className="text-sm font-black text-slate-400 uppercase tracking-[0.2em]">
+                  End of Archive
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-900 font-black text-lg">{history.length}</span>
+                  <span className="text-slate-400 font-bold uppercase text-xs tracking-widest">Reports Logged</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* BOTTOM SECTION */}
         <div className="mt-32 text-center max-w-4xl mx-auto space-y-8 pb-20">

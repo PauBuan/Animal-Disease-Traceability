@@ -13,23 +13,34 @@ export default function OutbreakStats() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBrgyModalOpen, setIsBrgyModalOpen] = useState(false);
   const [modalView, setModalView] = useState(""); 
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // --- DATE FILTER STATES ---
+  const currentYear = new Date().getFullYear();
+  const [filterMode, setFilterMode] = useState("preset");
+  const [selectedMonth, setSelectedMonth] = useState("all");
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   const VALID_BARANGAYS = [
     "Aplaya", "Balibago", "Caingin", "Dila", "Dita", "Don Jose", "Ibaba",
     "Kanluran", "Labas", "Macabling", "Malitlit", "Malusak", "Market Area",
     "Pooc", "Pulong Santa Cruz", "Santo Domingo", "Sinalhan", "Tagapo"
   ];
+  const [expandedBrgy, setExpandedBrgy] = useState(null);
 
   const MILD_CATS = ["Respiratory Infection", "Parasitic Infection", "Digestive Issue / Scours", "Skin Condition / Mange", "Physical Injury / Lameness"];
   const DANGER_CATS = ["African Swine Fever (ASF)", "Avian Influenza", "Foot and Mouth Disease (FMD)"];
 
-  // Animal Icons Mapping
   const animalIcons = {
     Hog: "🐖",
     Cow: "🐄",
     Chicken: "🐓",
-    Sheep: "🐑",
+    Carabao: "🐃",
     Goat: "🐐",
+    Ducks: "🦆",
   };
 
   useEffect(() => {
@@ -47,6 +58,31 @@ export default function OutbreakStats() {
     fetchStats();
   }, []);
 
+  // --- DATE FILTER LOGIC ---
+  const filteredTransactions = transactions.filter(tx => {
+    const txDate = new Date(tx.timestamp);
+    if (isNaN(txDate)) return false;
+
+    if (filterMode === "custom") {
+      const start = customStart ? new Date(customStart) : new Date("1900-01-01");
+      const end = customEnd ? new Date(customEnd) : new Date("2100-12-31");
+      end.setHours(23, 59, 59, 999);
+      return txDate >= start && txDate <= end;
+    } else {
+      const yearMatch = txDate.getFullYear() === Number(selectedYear);
+      const monthMatch = selectedMonth === "all" || txDate.getMonth() === Number(selectedMonth);
+      return yearMatch && monthMatch;
+    }
+  });
+
+  const handleReset = () => {
+    setFilterMode("preset");
+    setSelectedMonth("all");
+    setSelectedYear(currentYear);
+    setCustomStart("");
+    setCustomEnd("");
+  };
+
   const mildCounts = { "Respiratory Infection": 0, "Parasitic Infection": 0, "Digestive Issue / Scours": 0, "Skin Condition / Mange": 0, "Physical Injury / Lameness": 0, "Others": 0 };
   const dangerousCounts = { "African Swine Fever (ASF)": 0, "Avian Influenza": 0, "Foot and Mouth Disease (FMD)": 0, "Others": 0 };
 
@@ -54,8 +90,9 @@ export default function OutbreakStats() {
     Hog: { total: 0, mild: { ...mildCounts }, dangerous: { ...dangerousCounts } },
     Cow: { total: 0, mild: { ...mildCounts }, dangerous: { ...dangerousCounts } },
     Chicken: { total: 0, mild: { ...mildCounts }, dangerous: { ...dangerousCounts } },
-    Sheep: { total: 0, mild: { ...mildCounts }, dangerous: { ...dangerousCounts } },
+    Carabao: { total: 0, mild: { ...mildCounts }, dangerous: { ...dangerousCounts } },
     Goat: { total: 0, mild: { ...mildCounts }, dangerous: { ...dangerousCounts } },
+    Ducks: { total: 0, mild: { ...mildCounts }, dangerous: { ...dangerousCounts } },
   };
 
   const brgyStats = {};
@@ -66,7 +103,7 @@ export default function OutbreakStats() {
     };
   });
 
-  transactions.forEach((tx) => {
+  filteredTransactions.forEach((tx) => {
     const qty = Number(tx.quantity) || 1;
     const disease = tx.diagnosedDisease || "";
     const species = tx.animalType || tx.species;
@@ -115,129 +152,258 @@ export default function OutbreakStats() {
     <div className="fixed inset-0 flex items-center justify-center bg-slate-50/30 backdrop-blur-sm z-[1000]">
       <div className="bg-white/80 p-10 rounded-[2.5rem] shadow-2xl border border-white flex flex-col items-center">
         <div className="relative w-20 h-20 mb-6">
-          {/* Outer Ring */}
           <div className="absolute inset-0 rounded-full border-4 border-slate-100"></div>
-          {/* Animated Spinning Circle */}
           <div className="absolute inset-0 rounded-full border-4 border-t-green-600 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
-          {/* Center Pulsing Dot */}
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-4 h-4 bg-green-500 rounded-full animate-pulse shadow-[0_0_15px_rgba(34,197,94,0.6)]"></div>
           </div>
         </div>
         <h2 className="text-xl font-black text-slate-800 tracking-tight uppercase">System Syncing</h2>
-        <p className="text-slate-500 font-bold text-xs mt-2 tracking-[0.2em] animate-pulse">
-          Fetching Outbreak Statistics data...
-        </p>
+        <p className="text-slate-500 font-bold text-xs mt-2 tracking-[0.2em] animate-pulse">Fetching Outbreak Statistics data...</p>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 pt-20 pb-16 px-5 sm:px-8 lg:px-12 font-sans">
+    <div className="min-h-screen bg-transparent pt-20 pb-16 px-5 sm:px-8 lg:px-12 font-sans">
       
-      {/* MODERN ANIMAL MODAL */}
+      {/* ANIMAL MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={() => setIsModalOpen(false)}></div>
-          <div className="relative bg-[#F8FAFC] rounded-[2.5rem] w-full max-w-6xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
-            <div className="p-8 border-b bg-white/80 backdrop-blur-md sticky top-0 z-10 flex justify-between items-center">
-              <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-2xl ${modalView === 'mild' ? 'bg-blue-600' : 'bg-red-600'} text-white text-2xl`}>🐾</div>
-                <div>
-                    <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight">
-                        {modalView === 'mild' ? 'Animal Health Profile' : 'High-Risk Animal Cases'}
-                    </h2>
-                    <p className="text-slate-500 font-medium">Categorized species surveillance data</p>
-                </div>
-              </div>
-              <button onClick={() => setIsModalOpen(false)} className="w-12 h-12 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 transition-all text-2xl">✕</button>
-            </div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsModalOpen(false)}></div>
+          <div className="relative bg-[#F8FAFC] rounded-[2.5rem] w-full max-w-4xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col border border-white/20">
             
-            <div className="p-8 overflow-y-auto scrollbar-hide">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {Object.entries(animalStats).map(([animal, data]) => {
-                  const hasCases = Object.values(data[modalView]).some(c => c > 0);
-                  return (
-                    <div key={animal} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
-                      <div className="flex justify-between items-center mb-6">
-                        <div className="flex items-center gap-3">
-                            <span className="text-4xl">{animalIcons[animal] || "🐾"}</span>
-                            <h4 className="text-2xl font-black text-slate-800">{animal}</h4>
-                        </div>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${hasCases ? (modalView === 'mild' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600') : 'bg-slate-100 text-slate-400'}`}>
-                          {hasCases ? 'Active' : 'Clear'}
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {Object.entries(data[modalView]).map(([name, count]) => (
-                          <div key={name} className={`flex justify-between items-center p-3 rounded-xl ${count > 0 ? 'bg-slate-50 border-slate-200 shadow-sm' : 'opacity-30 border-transparent'} border`}>
-                            <span className="text-xs font-bold text-slate-600">{name}</span>
-                            <span className={`text-lg font-black ${count > 0 ? (modalView === 'mild' ? 'text-blue-600' : 'text-red-600') : 'text-slate-400'}`}>{count}</span>
+            {/* Header */}
+            <div className="p-8 border-b bg-white sticky top-0 z-10">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 flex items-center justify-center rounded-2xl shadow-lg ${modalView === 'mild' ? 'bg-blue-600' : 'bg-red-600'} text-white text-2xl`}>
+                    🐾
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">
+                      {modalView === 'mild' ? 'Species Health Profile' : 'High-Risk Species Data'}
+                    </h2>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Livestock & Poultry Classification</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsModalOpen(false)} className="w-12 h-12 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 transition-all font-bold">✕</button>
+              </div>
+              
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">🔍</span>
+                <input 
+                  type="text"
+                  placeholder="Search Animal Species..."
+                  value={searchTerm}
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-slate-200/50 font-bold text-slate-700 transition-all"
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Content Area */}
+            <div className="p-8 overflow-y-auto flex-grow bg-[#F8FAFC]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                {Object.entries(animalStats)
+                  .filter(([animal]) => animal.toLowerCase().includes(searchTerm.toLowerCase()))
+                  .map(([animal, data]) => {
+                    const totalCases = Object.values(data[modalView]).reduce((a, b) => a + b, 0);
+                    // Using expandedBrgy for logic since it's already in your state, 
+                    // or you can add const [expandedAnimal, setExpandedAnimal] = useState(null);
+                    const isExpanded = expandedBrgy === animal;
+
+                    return (
+                      <div 
+                        key={animal} 
+                        className={`group bg-white rounded-3xl border transition-all duration-300 overflow-hidden ${
+                          isExpanded ? 'ring-2 ring-indigo-500/20 border-indigo-200 shadow-xl scale-[1.01]' : 'border-slate-100 shadow-sm hover:border-slate-300'
+                        }`}
+                      >
+                        {/* Header Row */}
+                        <div 
+                          className="p-6 flex items-center justify-between cursor-pointer"
+                          onClick={() => setExpandedBrgy(isExpanded ? null : animal)}
+                        >
+                          <div className="flex items-center gap-4">
+                            <span className="text-4xl filter drop-shadow-sm group-hover:scale-110 transition-transform">{animalIcons[animal] || "🐾"}</span>
+                            <div className="flex flex-col">
+                              <h4 className="font-bold text-slate-800 text-base leading-tight uppercase tracking-tight">{animal}</h4>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                {isExpanded ? 'Hide Details' : 'Show Details'}
+                              </p>
+                            </div>
                           </div>
-                        ))}
+
+                          <div className="flex items-center gap-4">
+                            {totalCases === 0 ? (
+                              <span className="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-full text-xs font-black uppercase">Clear</span>
+                            ) : (
+                              <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase ${
+                                modalView === 'mild' ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'
+                              }`}>
+                                {totalCases} CASES
+                              </span>
+                            )}
+                            
+                            <div className={`w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-indigo-50 text-indigo-600' : ''}`}>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Expandable Section */}
+                        <div className={`transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+                          <div className="px-6 pb-6 pt-0">
+                            <div className="p-4 bg-slate-50 rounded-2xl space-y-3 border border-slate-100">
+                              {totalCases > 0 ? (
+                                Object.entries(data[modalView]).map(([name, count]) => (
+                                  count > 0 && (
+                                    <div key={name} className="flex justify-between items-center text-[11px] font-bold uppercase">
+                                      <span className="text-slate-500 truncate pr-4">{name}</span>
+                                      <span className={`px-2 py-0.5 rounded-md ${modalView === 'mild' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}>
+                                        {count}
+                                      </span>
+                                    </div>
+                                  )
+                                ))
+                              ) : (
+                                <div className="text-center py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                  No cases reported for this species
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* MODERN BARANGAY MODAL */}
+      {/* BARANGAY MODAL */}
       {isBrgyModalOpen && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={() => setIsBrgyModalOpen(false)}></div>
-          <div className="relative bg-[#F8FAFC] rounded-[2.5rem] w-full max-w-7xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
-            <div className="p-8 border-b bg-white/80 backdrop-blur-md sticky top-0 z-10 flex justify-between items-center">
-              <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-2xl ${modalView === 'mild' ? 'bg-blue-600' : 'bg-red-600'} text-white text-2xl`}>📍</div>
-                <div>
-                    <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight">
-                        {modalView === 'mild' ? 'Barangay Health Mapping' : 'Critical Area Surveillance'}
-                    </h2>
-                    <p className="text-slate-500 font-medium">Real-time status of all 18 administrative divisions</p>
-                </div>
-              </div>
-              <button onClick={() => setIsBrgyModalOpen(false)} className="w-12 h-12 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 transition-all text-2xl">✕</button>
-            </div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsBrgyModalOpen(false)}></div>
+          <div className="relative bg-[#F8FAFC] rounded-[2.5rem] w-full max-w-4xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col border border-white/20">
             
-            <div className="p-8 overflow-y-auto scrollbar-hide">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {Object.entries(brgyStats).map(([brgy, data]) => {
-                  const totalCount = Object.values(data[modalView]).reduce((a, b) => a + b, 0);
-                  return (
-                    <div key={brgy} className="bg-white rounded-2xl p-5 border border-slate-100 hover:border-blue-200 transition-all group shadow-sm">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-black text-slate-700 group-hover:text-slate-900">{brgy}</h4>
-                        <div className={`flex items-center gap-2 px-2 py-1 rounded-lg ${totalCount > 0 ? (modalView === 'mild' ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600') : 'bg-emerald-50 text-emerald-600'}`}>
-                            <div className={`w-2 h-2 rounded-full ${totalCount > 0 ? (modalView === 'mild' ? 'bg-blue-500' : 'bg-red-500 animate-pulse') : 'bg-emerald-400'}`}></div>
-                            <span className="text-[9px] font-black uppercase">{totalCount > 0 ? `${totalCount} Cases` : 'Safe'}</span>
+            {/* Header */}
+            <div className="p-8 border-b bg-white sticky top-0 z-10">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 flex items-center justify-center rounded-2xl shadow-lg ${modalView === 'mild' ? 'bg-blue-600' : 'bg-red-600'} text-white text-2xl`}>
+                    {modalView === 'mild' ? '🏥' : '🚨'}
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight leading-none">
+                      {modalView === 'mild' ? 'Health Mapping' : 'Critical Surveillance'}
+                    </h2>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Santa Rosa City Records</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsBrgyModalOpen(false)} className="w-12 h-12 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 transition-all font-bold">✕</button>
+              </div>
+              
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">🔍</span>
+                <input 
+                  type="text"
+                  placeholder="Search Barangay Name..."
+                  value={searchTerm}
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-slate-200/50 font-bold text-slate-700 transition-all"
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Content Area */}
+            <div className="p-8 overflow-y-auto flex-grow bg-[#F8FAFC]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                {Object.entries(brgyStats)
+                  .filter(([brgy]) => brgy.toLowerCase().includes(searchTerm.toLowerCase()))
+                  .map(([brgy, data]) => {
+                    const totalCount = Object.values(data[modalView]).reduce((a, b) => a + b, 0);
+                    const isExpanded = expandedBrgy === brgy;
+
+                    return (
+                      <div 
+                        key={brgy} 
+                        className={`group bg-white rounded-3xl border transition-all duration-300 overflow-hidden ${
+                          isExpanded ? 'ring-2 ring-indigo-500/20 border-indigo-200 shadow-xl' : 'border-slate-100 shadow-sm hover:border-slate-300'
+                        }`}
+                      >
+                        {/* Header Row: Clickable to expand */}
+                        <div 
+                          className="p-6 flex items-center justify-between cursor-pointer"
+                          onClick={() => setExpandedBrgy(isExpanded ? null : brgy)}
+                        >
+                          <div className="flex flex-col">
+                            {/* REMOVED "BRGY" PREFIX HERE */}
+                            <h4 className="font-bold text-slate-800 text-base leading-tight uppercase tracking-tight">
+                              {brgy.replace(/brgy\.?\s+/i, '')}
+                            </h4>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                              {isExpanded ? 'Click to hide' : 'View details'}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-4">
+                            {totalCount === 0 ? (
+                              <span className="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-full text-xs font-black uppercase">No Cases</span>
+                            ) : (
+                              <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase ${
+                                modalView === 'mild' ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'
+                              }`}>
+                                {totalCount} CASES
+                              </span>
+                            )}
+                            
+                            {/* Arrow Button */}
+                            <div className={`w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-indigo-50 text-indigo-600' : ''}`}>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" /></svg>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Expandable Body */}
+                        <div className={`transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'} overflow-hidden`}>
+                          <div className="px-6 pb-6 pt-0">
+                            <div className="p-4 bg-slate-50 rounded-2xl space-y-3 border border-slate-100">
+                              {totalCount > 0 ? (
+                                Object.entries(data[modalView]).map(([name, count]) => (
+                                  count > 0 && (
+                                    <div key={name} className="flex justify-between items-center text-[11px] font-bold uppercase">
+                                      <span className="text-slate-500 truncate pr-4">{name}</span>
+                                      <span className={`px-2 py-0.5 rounded-md ${modalView === 'mild' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}`}>
+                                        {count}
+                                      </span>
+                                    </div>
+                                  )
+                                ))
+                              ) : (
+                                <div className="text-center py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                  No cases reported in this area
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <div className="space-y-1">
-                        {Object.entries(data[modalView]).map(([name, count]) => (
-                           count > 0 && (
-                            <div key={name} className="flex justify-between text-[10px] font-bold uppercase py-1 border-b border-slate-50">
-                                <span className="text-slate-400 truncate pr-2">{name}</span>
-                                <span className={modalView === 'mild' ? 'text-blue-500' : 'text-red-500'}>{count}</span>
-                            </div>
-                           )
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* DASHBOARD LAYOUT */}
+      {/* DASHBOARD CONTENT */}
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
+        
+        {/* HEADER SECTION */}
+        <div className="text-center mb-10">
           <div className="inline-flex items-center gap-3 px-6 py-3 mb-6 rounded-full bg-white/80 backdrop-blur-md shadow-sm border border-slate-200">
             <span className="text-blue-600 text-xl">🦠📊</span>
             <span className="font-bold text-slate-800 uppercase tracking-widest text-xs">Santa Rosa Veterinary Surveillance</span>
@@ -246,6 +412,70 @@ export default function OutbreakStats() {
           <p className="text-xl text-slate-600 max-w-3xl mx-auto font-medium">Live epidemiological overview of animal health conditions across all 18 barangays</p>
         </div>
 
+        {/* --- DATA FILTER BAR (Centered between Header and Cards) --- */}
+        <div className="mb-16 flex justify-center print:hidden">
+          <div className="w-full bg-white rounded-[2.5rem] shadow-lg border border-slate-200/60 p-6 flex flex-col lg:flex-row items-center justify-between gap-6">
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <div className="bg-slate-100 p-1.5 rounded-2xl flex gap-1">
+                <button 
+                  onClick={() => setFilterMode("preset")}
+                  className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all ${filterMode === 'preset' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}
+                >
+                  Standard
+                </button>
+                <button 
+                  onClick={() => setFilterMode("custom")}
+                  className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all ${filterMode === 'custom' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}
+                >
+                  Custom Range
+                </button>
+              </div>
+
+              <div className={`flex gap-3 transition-all ${filterMode === 'custom' ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
+                <select 
+                  value={selectedMonth} 
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="all">Full Year</option>
+                  {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+                </select>
+                <select 
+                  value={selectedYear} 
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-bold text-slate-700 outline-none"
+                >
+                  {[currentYear, currentYear-1, currentYear-2].map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+
+              <div className={`flex items-center gap-3 transition-all ${filterMode === 'preset' ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
+                <input 
+                  type="date" 
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-bold text-slate-700 outline-none"
+                />
+                <span className="text-slate-300 font-black">TO</span>
+                <input 
+                  type="date" 
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-bold text-slate-700 outline-none"
+                />
+              </div>
+            </div>
+
+            <button 
+              onClick={handleReset}
+              className="text-slate-400 hover:text-red-500 font-black text-xs uppercase tracking-widest transition-colors flex items-center gap-2"
+            >
+              <span>🔄</span> Reset to {currentYear}
+            </button>
+          </div>
+        </div>
+
+        {/* MAIN CARDS GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-stretch">
           
           {/* MILD CASES */}
@@ -259,16 +489,16 @@ export default function OutbreakStats() {
             </div>
 
             <div className="group bg-gradient-to-br from-blue-50/90 to-indigo-50/70 rounded-[3rem] p-10 lg:p-12 border border-blue-200/60 shadow-lg transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 flex flex-col h-[520px]">
-              <h3 className="text-3xl font-black text-blue-900 mb-6 flex items-center gap-3 uppercase">📊 Mild Cases Analytics</h3>
+              <h3 className="text-3xl font-black text-blue-900 mb-6 flex items-center gap-3 uppercase">📊 Mild Cases Informatiion</h3>
               <p className="text-blue-800 leading-relaxed mb-8 text-xl font-medium">
-                Mild cases represent non-life-threatening health issues like respiratory infections or minor physical injuries. These reports require standard veterinary monitoring and improved farm-level hygiene to maintain local livestock stability.
+                Mild cases represent non-life-threatening health issues. These reports require standard veterinary monitoring and improved farm-level hygiene to maintain local livestock stability.
               </p>
               <div className="flex flex-col gap-4 mt-auto">
                 <button onClick={() => openFilteredModal('mild')} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-lg transition-all hover:bg-blue-700 shadow-xl active:scale-95">
-                  View Animal Analytics →
+                  View Animal Information →
                 </button>
                 <button onClick={() => openBrgyModal('mild')} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-lg transition-all hover:bg-slate-800 shadow-xl active:scale-95">
-                  View Barangay Analytics →
+                  View Barangay Information →
                 </button>
               </div>
             </div>
@@ -285,63 +515,39 @@ export default function OutbreakStats() {
             </div>
 
             <div className="group bg-gradient-to-br from-red-50/90 to-rose-50/70 rounded-[3rem] p-10 lg:p-12 border border-red-200/60 shadow-lg transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 flex flex-col h-[520px]">
-              <h3 className="text-3xl font-black text-red-900 mb-6 flex items-center gap-3 uppercase">🚨 Critical Cases Analytics</h3>
+              <h3 className="text-3xl font-black text-red-900 mb-6 flex items-center gap-3 uppercase">🚨 Critical Cases Information</h3>
               <p className="text-red-900 leading-relaxed mb-8 text-xl font-medium">
-                Dangerous cases involve high-risk, notifiable pathogens like ASF or Bird Flu that threaten agricultural stability. Rapid response including quarantine and strict movement restrictions is mandatory to protect the city's livestock and economy.
+                Dangerous cases involve high-risk pathogens that threaten agricultural stability. Rapid response including quarantine and strict movement restrictions is mandatory.
               </p>
               <div className="flex flex-col gap-4 mt-auto">
                 <button onClick={() => openFilteredModal('dangerous')} className="w-full py-5 bg-red-600 text-white rounded-2xl font-black text-lg transition-all hover:bg-red-700 shadow-xl active:scale-95">
-                  View Animal Analytics →
+                  View Animal  Informayion →
                 </button>
                 <button onClick={() => openBrgyModal('dangerous')} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-lg transition-all hover:bg-slate-800 shadow-xl active:scale-95">
-                  View Barangay Analytics →
+                  View Barangay Information →
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Outbreak Analytics Summary */}
+        {/* SUMMARY SECTION */}
         <div className="mt-16 flex justify-center">
           <div className="group bg-gradient-to-r from-indigo-50 via-purple-50 to-blue-50 p-10 lg:p-12 rounded-[3rem] border border-indigo-200/60 shadow-2xl max-w-5xl w-full transition-all duration-500 hover:shadow-3xl hover:-translate-y-2 text-center">
-            <h3 className="text-3xl lg:text-4xl font-black text-indigo-900 mb-6 tracking-tight">
-              Outbreak Analytics Summary
-            </h3>
-
+            <h3 className="text-3xl lg:text-4xl font-black text-indigo-900 mb-6 tracking-tight">Outbreak Analytics Summary</h3>
             <div className="space-y-6 text-slate-800 leading-relaxed text-lg max-w-4xl mx-auto">
-              <p>
-                Current data shows <strong>{Object.values(mildCounts).reduce((a,b)=>a+b,0).toLocaleString()}</strong> mild cases and 
-                <strong> {Object.values(dangerousCounts).reduce((a,b)=>a+b,0).toLocaleString()}</strong> critical cases across Santa Rosa barangays.
-              </p>
-
+              <p>Current filtered data shows <strong>{Object.values(mildCounts).reduce((a,b)=>a+b,0).toLocaleString()}</strong> mild cases and <strong> {Object.values(dangerousCounts).reduce((a,b)=>a+b,0).toLocaleString()}</strong> critical cases.</p>
               {Object.values(dangerousCounts).reduce((a,b)=>a+b,0) > 0 ? (
-                <p className="text-red-700 font-medium">
-                  <strong>Critical Alert:</strong> Dangerous pathogens detected. Immediate containment (quarantine, movement restrictions, and emergency response) is required to prevent widespread impact on livestock and economy.
-                </p>
+                <p className="text-red-700 font-medium"><strong>Critical Alert:</strong> Dangerous pathogens detected. Immediate containment required.</p>
               ) : (
-                <p className="text-emerald-700 font-medium">
-                  <strong>Positive Status:</strong> No active critical outbreaks recorded. Biosecurity measures appear effective — maintain vigilance.
-                </p>
+                <p className="text-emerald-700 font-medium"><strong>Positive Status:</strong> No active critical outbreaks recorded in this period.</p>
               )}
-
-              {Object.values(mildCounts).reduce((a,b)=>a+b,0) > 50 ? (
-                <p className="text-amber-700 font-medium">
-                  Mild conditions are moderately elevated — focus on improved farm hygiene, ventilation, and routine veterinary checks to reduce future reports.
-                </p>
-              ) : (
-                <p className="text-slate-700">
-                  Mild cases remain low — good indicator of stable baseline health across monitored populations.
-                </p>
-              )}
-
-              <p className="text-slate-600 italic mt-6">
-                All data is sourced from verified field reports. Cross-reference with local advisories for real-time action.
-              </p>
+              <p className="text-slate-600 italic mt-6">All data verified from field reports. Cross-reference with local advisories for action.</p>
             </div>
           </div>
         </div>
 
-        {/* Bottom Actions */}
+        {/* BOTTOM ACTIONS */}
         <div className="mt-16 flex flex-col sm:flex-row justify-center items-center gap-6">
           <button onClick={() => navigate("/")} className="px-10 py-5 bg-slate-800 text-white rounded-2xl font-bold text-lg transition-all shadow-xl hover:bg-slate-700 active:scale-95">
             ← Return to Dashboard

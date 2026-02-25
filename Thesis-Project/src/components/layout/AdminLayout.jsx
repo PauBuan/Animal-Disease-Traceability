@@ -64,7 +64,7 @@ export default function AdminLayout() {
             }`}
           >
             <ReportsIcon />
-            <span className="ml-3">Compliance Reports</span>
+            <span className="ml-3">Reports Analysis</span>
           </Link>
           <Link
             to="/admin/user-management"

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -17,6 +17,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 
 export default function SummaryReport() {
   const navigate = useNavigate();
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
   const [stats, setStats] = useState({
@@ -33,6 +34,15 @@ export default function SummaryReport() {
   });
   const [topDiseases, setTopDiseases] = useState([]);
 
+  // --- DATE FILTER STATES ---
+  const currentYear = new Date().getFullYear();
+  const [filterMode, setFilterMode] = useState("preset");
+  const [selectedMonth, setSelectedMonth] = useState("all");
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -42,12 +52,46 @@ export default function SummaryReport() {
       const res = await fetch("http://localhost:3001/api/transactions");
       const data = await res.json();
       const txData = Array.isArray(data) ? data : [];
-      processData(txData);
+      setTransactions(txData);
     } catch (err) {
       console.error("Error fetching summary data:", err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // --- FILTER LOGIC ---
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(tx => {
+      const txDate = new Date(tx.date || tx.timestamp);
+      if (isNaN(txDate.getTime())) return false;
+
+      if (filterMode === "custom") {
+        const start = customStart ? new Date(customStart) : new Date("1900-01-01");
+        const end = customEnd ? new Date(customEnd) : new Date("2100-12-31");
+        end.setHours(23, 59, 59, 999);
+        return txDate >= start && txDate <= end;
+      } else {
+        const yearMatch = txDate.getFullYear() === Number(selectedYear);
+        const monthMatch = selectedMonth === "all" || txDate.getMonth() === Number(selectedMonth);
+        return yearMatch && monthMatch;
+      }
+    });
+  }, [transactions, filterMode, selectedMonth, selectedYear, customStart, customEnd]);
+
+  // --- RE-PROCESS DATA WHENEVER FILTER CHANGES ---
+  useEffect(() => {
+    if (transactions.length > 0) {
+      processData(filteredTransactions);
+    }
+  }, [filteredTransactions]);
+
+  const handleReset = () => {
+    setFilterMode("preset");
+    setSelectedMonth("all");
+    setSelectedYear(currentYear);
+    setCustomStart("");
+    setCustomEnd("");
   };
 
   const processData = (txList) => {
@@ -64,10 +108,8 @@ export default function SummaryReport() {
       const severity = (tx.severity || "").toLowerCase();
       if (severity === "mild" || severity === "dangerous") {
         const date = new Date(tx.date || tx.timestamp);
-        if (!isNaN(date.getTime())) {
-          const monthIndex = date.getMonth();
-          monthsCount[monthIndex] += Number(tx.quantity) || 1;
-        }
+        const monthIndex = date.getMonth();
+        monthsCount[monthIndex] += Number(tx.quantity) || 1;
 
         if (severity === "dangerous") {
           const diag = tx.diagnosedDisease || "Other";
@@ -85,21 +127,25 @@ export default function SummaryReport() {
     const minVal = Math.min(...monthsCount);
     const maxIdx = monthsCount.indexOf(maxVal);
     const minIdx = monthsCount.indexOf(minVal);
+    
+    // MoM logic uses the latest recorded months in the array
+    const lastMonthVal = monthsCount[11];
+    const prevMonthVal = monthsCount[10];
     let trend = "Stable";
     let momChange = 0;
-    if (monthsCount[11] > monthsCount[10]) {
+    if (lastMonthVal > prevMonthVal) {
       trend = "Increasing";
-      momChange = ((monthsCount[11] - monthsCount[10]) / (monthsCount[10] || 1)) * 100;
-    } else if (monthsCount[11] < monthsCount[10]) {
+      momChange = ((lastMonthVal - prevMonthVal) / (prevMonthVal || 1)) * 100;
+    } else if (lastMonthVal < prevMonthVal) {
       trend = "Decreasing";
-      momChange = ((monthsCount[11] - monthsCount[10]) / (monthsCount[10] || 1)) * 100;
+      momChange = ((lastMonthVal - prevMonthVal) / (prevMonthVal || 1)) * 100;
     }
 
     const riskLevel = total > 500 ? "High" : total > 200 ? "Medium" : "Low";
     const peakPercentage = total > 0 ? ((maxVal / total) * 100).toFixed(1) : 0;
 
     const sortedDiseases = Object.entries(diseaseMap)
-      .sort(([,a], [,b]) => b - a)
+      .sort(([, a], [, b]) => b - a)
       .map(([disease, count]) => ({ disease, count }));
 
     setTopDiseases(sortedDiseases);
@@ -140,9 +186,6 @@ export default function SummaryReport() {
         <div className="relative w-20 h-20 mb-6">
           <div className="absolute inset-0 rounded-full border-4 border-slate-100"></div>
           <div className="absolute inset-0 rounded-full border-4 border-t-red-600 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-5 h-5 bg-red-500 rounded-full animate-pulse shadow-lg shadow-red-300"></div>
-          </div>
         </div>
         <h2 className="text-xl font-black text-slate-800 tracking-tight uppercase">Generating Report</h2>
         <p className="text-slate-500 font-medium text-sm mt-2 animate-pulse">Analyzing blockchain-verified data...</p>
@@ -151,73 +194,130 @@ export default function SummaryReport() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-red-50/20 to-rose-50/10">
+    <div className="min-h-screen bg-transparent">
       <main className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 py-10 lg:py-16">
-        {/* Header */}
-        <header className="text-center mb-12 lg:mb-16">
+        
+        {/* HEADER */}
+        <header className="text-center mb-10">
           <div className="inline-flex items-center gap-3 px-6 py-3 mb-6 rounded-full bg-white/80 backdrop-blur-md shadow-sm border border-red-100">
             <span className="text-red-600 text-xl">📉🦠</span>
             <span className="font-bold text-slate-800 uppercase tracking-wider text-sm">Santa Rosa Disease Intelligence</span>
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight mb-4">
-            Disease Summary Report
+            Diseases Summary Report
           </h1>
           <p className="text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto font-medium">
             Annual epidemiological overview of confirmed sick cases (mild + dangerous severity) across Santa Rosa City
           </p>
         </header>
 
-        {/* KPI Cards – more colorful & varied */}
+        {/* --- DATA FILTER BAR (Centered between Header and KPI Cards) --- */}
+        <div className="mb-12 flex justify-center print:hidden">
+          <div className="w-full bg-white rounded-[2.5rem] shadow-lg border border-slate-200/60 p-6 flex flex-col lg:flex-row items-center justify-between gap-6">
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <div className="bg-slate-100 p-1.5 rounded-2xl flex gap-1">
+                <button 
+                  onClick={() => setFilterMode("preset")}
+                  className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all ${filterMode === 'preset' ? 'bg-white shadow-sm text-red-600' : 'text-slate-400'}`}
+                >
+                  Standard
+                </button>
+                <button 
+                  onClick={() => setFilterMode("custom")}
+                  className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all ${filterMode === 'custom' ? 'bg-white shadow-sm text-red-600' : 'text-slate-400'}`}
+                >
+                  Custom Range
+                </button>
+              </div>
+
+              <div className={`flex gap-3 transition-all ${filterMode === 'custom' ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
+                <select 
+                  value={selectedMonth} 
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500/20"
+                >
+                  <option value="all">Full Year</option>
+                  {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+                </select>
+                <select 
+                  value={selectedYear} 
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-bold text-slate-700 outline-none"
+                >
+                  {[currentYear, currentYear-1, currentYear-2].map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+
+              <div className={`flex items-center gap-3 transition-all ${filterMode === 'preset' ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
+                <input 
+                  type="date" 
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-bold text-slate-700 outline-none"
+                />
+                <span className="text-slate-300 font-black">TO</span>
+                <input 
+                  type="date" 
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 font-bold text-slate-700 outline-none"
+                />
+              </div>
+            </div>
+
+            <button 
+              onClick={handleReset}
+              className="text-slate-400 hover:text-red-500 font-black text-xs uppercase tracking-widest transition-colors flex items-center gap-2"
+            >
+              <span>🔄</span> Reset to {currentYear}
+            </button>
+          </div>
+        </div>
+
+        {/* KPI CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-12">
-          <div className="bg-gradient-to-br from-red-600 to-rose-700 p-8 rounded-3xl text-white shadow-2xl shadow-red-200/40 transition-all hover:scale-[1.02] hover:shadow-red-300/50">
+          <div className="bg-gradient-to-br from-red-600 to-rose-700 p-8 rounded-3xl text-white shadow-2xl transition-all hover:scale-[1.02]">
             <p className="text-red-100 text-sm font-semibold uppercase tracking-wider mb-2">Total Confirmed Cases</p>
             <p className="text-5xl sm:text-6xl font-black">{stats.total.toLocaleString()}</p>
           </div>
 
-          <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-8 rounded-3xl text-white shadow-2xl shadow-indigo-200/40 transition-all hover:scale-[1.02] hover:shadow-indigo-300/50">
+          <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-8 rounded-3xl text-white shadow-2xl transition-all hover:scale-[1.02]">
             <p className="text-indigo-100 text-sm font-semibold uppercase tracking-wider mb-2">Monthly Average</p>
             <p className="text-5xl sm:text-6xl font-black">{stats.average}</p>
           </div>
 
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-lg p-8 transition-all hover:shadow-xl hover:-translate-y-1">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-lg p-8">
             <p className="text-slate-600 font-medium mb-2">Peak Month</p>
             <p className="text-4xl font-black text-red-700">
               {stats.maxMonth} <span className="text-2xl text-slate-400">({stats.max})</span>
             </p>
-            <p className="text-sm text-slate-500 mt-2">
-              {stats.peakPercentage}% of yearly total
-            </p>
+            <p className="text-sm text-slate-500 mt-2">{stats.peakPercentage}% of yearly total</p>
           </div>
 
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-lg p-8 transition-all hover:shadow-xl hover:-translate-y-1">
-            <p className="text-slate-600 font-medium mb-2">Month-over-Month Change</p>
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-lg p-8">
+            <p className="text-slate-600 font-medium mb-2">MoM Change</p>
             <p className={`text-4xl font-black ${stats.momChange > 0 ? "text-red-600" : "text-emerald-600"}`}>
               {stats.momChange > 0 ? "+" : ""}{stats.momChange}%
             </p>
           </div>
 
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-lg p-8 transition-all hover:shadow-xl hover:-translate-y-1">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-lg p-8">
             <p className="text-slate-600 font-medium mb-2">Risk Level</p>
-            <span
-              className={`inline-block px-6 py-3 rounded-full text-xl font-bold ${
-                stats.riskLevel === "High"
-                  ? "bg-red-100 text-red-700 border-2 border-red-300"
-                  : stats.riskLevel === "Medium"
-                  ? "bg-orange-100 text-orange-700 border-2 border-orange-300"
-                  : "bg-emerald-100 text-emerald-700 border-2 border-emerald-300"
-              }`}
-            >
+            <span className={`inline-block px-6 py-3 rounded-full text-xl font-bold ${
+              stats.riskLevel === "High" ? "bg-red-100 text-red-700 border-2 border-red-300"
+              : stats.riskLevel === "Medium" ? "bg-orange-100 text-orange-700 border-2 border-orange-300"
+              : "bg-emerald-100 text-emerald-700 border-2 border-emerald-300"
+            }`}>
               {stats.riskLevel}
             </span>
           </div>
         </div>
 
-        {/* Main Chart + Top Cases */}
+        {/* MAIN CHART + TOP CASES */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
-          {/* Line Chart */}
           <div className="lg:col-span-8 bg-white rounded-3xl shadow-xl border border-slate-100/80 p-8 lg:p-10">
             <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-6 tracking-tight">
-              Monthly Sick Cases Trend – Full Year
+              Monthly Sick Cases Trend
             </h3>
             <div className="h-[380px] sm:h-[420px] lg:h-[480px]">
               <Line
@@ -225,119 +325,91 @@ export default function SummaryReport() {
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
-                  plugins: {
-                    legend: { display: false },
-                    tooltip: { mode: "index", intersect: false }
-                  },
+                  plugins: { legend: { display: false }, tooltip: { mode: "index", intersect: false } },
                   scales: {
-                    y: {
-                      beginAtZero: true,
-                      grid: { color: "rgba(0,0,0,0.04)" },
-                      ticks: { color: "#64748b", font: { weight: "500" } }
-                    },
-                    x: {
-                      grid: { display: false },
-                      ticks: { color: "#64748b", font: { weight: "500" } }
-                    }
+                    y: { beginAtZero: true, grid: { color: "rgba(0,0,0,0.04)" } },
+                    x: { grid: { display: false } }
                   },
-                  animation: {
-                    duration: 2000,
-                    easing: "easeOutQuart"
-                  }
+                  animation: { duration: 1500, easing: "easeOutQuart" }
                 }}
               />
             </div>
           </div>
 
-          {/* Top Cases */}
           <div className="lg:col-span-4 bg-white rounded-3xl shadow-xl border border-slate-100/80 p-8 lg:p-10">
             <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-6 tracking-tight">
               Top Reported Diseases
             </h3>
             <div className="space-y-4">
               {topDiseases.slice(0, 5).map(({ disease, count }) => (
-                <div 
-                  key={disease}
-                  className="flex justify-between items-center bg-slate-50 p-5 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-all hover:shadow-md"
-                >
+                <div key={disease} className="flex justify-between items-center bg-slate-50 p-5 rounded-2xl border border-slate-100">
                   <div>
                     <p className="font-bold text-slate-900">{disease}</p>
                     <p className="text-sm text-slate-500">{count.toLocaleString()} cases</p>
                   </div>
-                  <span className={`px-4 py-2 rounded-full text-sm font-bold ${
+                  <span className={`px-4 py-2 rounded-full text-xs font-bold ${
                     disease.includes("ASF") || disease.includes("Avian") || disease.includes("FMD")
-                      ? "bg-red-100 text-red-700 border border-red-200"
-                      : "bg-slate-100 text-slate-700 border border-slate-200"
+                    ? "bg-red-100 text-red-700 border border-red-200"
+                    : "bg-slate-100 text-slate-700 border border-slate-200"
                   }`}>
                     {disease.includes("ASF") || disease.includes("Avian") || disease.includes("FMD") ? "High Risk" : "Notified"}
                   </span>
                 </div>
               ))}
               {topDiseases.length === 0 && (
-                <p className="text-center text-slate-500 py-8">No dangerous cases recorded this year.</p>
+                <p className="text-center text-slate-500 py-8">No matching records found.</p>
               )}
             </div>
           </div>
         </div>
 
-        {/* Descriptive Analytics */}
-        <div className="bg-white rounded-3xl shadow-xl border border-slate-100/80 p-8 lg:p-10 mb-12">
-          <h3 className="text-2xl font-black text-slate-900 mb-6">Key Insights & Recommendations</h3>
-          <div className="space-y-6 text-slate-700 leading-relaxed text-lg">
-            <p>
-              This year recorded <strong>{stats.total.toLocaleString()}</strong> confirmed sick cases, averaging <strong>{stats.average}</strong> per month.
-              The peak occurred in <strong>{stats.maxMonth}</strong> ({stats.max} cases, {stats.peakPercentage}% of annual total).
-            </p>
-
-            {stats.trend === "Increasing" && (
-              <p className="text-red-700 font-medium">
-                <strong>Alert:</strong> Cases are increasing month-over-month ({stats.momChange > 0 ? "+" : ""}{stats.momChange}% last change). 
-                Prioritize enhanced surveillance, vaccination drives, and biosecurity audits in high-risk barangays.
+        {/* KEY INSIGHTS & RECOMMENDATIONS */}
+        <div className="mt-16 flex justify-center">
+          <div className="group bg-gradient-to-r from-indigo-50 via-purple-50 to-blue-50 p-10 lg:p-12 rounded-[3rem] border border-indigo-200/60 shadow-2xl max-w-5xl w-full transition-all duration-500 hover:shadow-3xl hover:-translate-y-2 text-center">
+            <h3 className="text-3xl lg:text-4xl font-black text-indigo-900 mb-6 tracking-tight">
+              Key Insights & Recommendations
+            </h3>
+            
+            <div className="space-y-6 text-slate-800 leading-relaxed text-lg max-w-4xl mx-auto">
+              <p>
+                Analysis of selected data shows <strong>{stats.total.toLocaleString()}</strong> confirmed cases. 
+                The peak period recorded <strong>{stats.max}</strong> cases in <strong>{stats.maxMonth}</strong> 
+                ({stats.peakPercentage}% of the current selection).
               </p>
-            )}
 
-            {stats.trend === "Decreasing" && (
-              <p className="text-emerald-700 font-medium">
-                <strong>Positive Trend:</strong> Cases have decreased compared to previous periods ({stats.momChange < 0 ? "" : "-"}{Math.abs(stats.momChange)}% last change). 
-                Current control measures appear effective — maintain momentum.
+              {stats.trend === "Increasing" ? (
+                <p className="text-red-700 font-medium">
+                  <strong>Alert:</strong> Cases show an upward trend ({stats.momChange > 0 ? "+" : ""}{stats.momChange}% change). 
+                  Escalated biosecurity protocols and immediate surveillance audits are advised.
+                </p>
+              ) : (
+                <p className="text-emerald-700 font-medium">
+                  <strong>Positive Status:</strong> Case volume is stable or declining ({stats.momChange}% change). 
+                  Current control measures appear effective for this period.
+                </p>
+              )}
+
+              {stats.riskLevel === "High" && (
+                <p className="text-red-600 font-bold">
+                  Critical Risk Level Detected: Immediate Response Required
+                </p>
+              )}
+
+              <p className="text-slate-600 italic mt-6">
+                All insights are verified via Santa Rosa Veterinary Blockchain Surveillance. 
+                Cross-reference with local health advisories for field action.
               </p>
-            )}
-
-            {stats.trend === "Stable" && (
-              <p className="text-slate-700">
-                Trend remains stable — a good indicator of consistent monitoring and response capabilities. 
-                Continue routine surveillance to prevent any resurgence.
-              </p>
-            )}
-
-            {stats.riskLevel === "High" && (
-              <p className="text-red-700 font-medium">
-                Current risk level is <strong>High</strong> — recommend immediate escalation of response protocols and stakeholder briefings.
-              </p>
-            )}
-
-            <p className="text-slate-600 italic">
-              Data is sourced from blockchain-verified field reports and veterinary diagnoses. Always cross-reference with local health advisories.
-            </p>
+            </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* ACTION BUTTONS */}
         <div className="mt-12 flex flex-col sm:flex-row justify-center gap-6">
-          <button
-            onClick={() => navigate("/home")}
-            className="px-10 py-5 bg-slate-800 hover:bg-slate-900 text-white rounded-2xl font-bold text-lg transition-all shadow-lg flex items-center justify-center gap-3 transform hover:scale-105"
-          >
+          <button onClick={() => navigate("/home")} className="px-10 py-5 bg-slate-800 text-white rounded-2xl font-bold text-lg hover:scale-105 transition-all">
             ← Return to Home
           </button>
-          <button
-            onClick={() => window.print()}
-            className="px-10 py-5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white rounded-2xl font-bold text-lg transition-all shadow-xl shadow-red-200/40 flex items-center justify-center gap-3 transform hover:scale-105"
-          >
+          <button onClick={() => window.print()} className="px-10 py-5 bg-red-600 text-white rounded-2xl font-bold text-lg hover:scale-105 transition-all">
             Download / Print Report
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
           </button>
         </div>
       </main>
