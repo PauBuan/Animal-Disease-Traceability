@@ -1,9 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 export default function VetTransactionLogs() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("pending"); // 'pending' or 'managed'
+
+  // --- Table Controls State ---
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterSeverity, setFilterSeverity] = useState("All");
+  const [sortConfig, setSortConfig] = useState("newest"); // 'newest' or 'oldest'
 
   // MODAL STATES
   const [modalType, setModalType] = useState(null); // 'diagnose', 'update', 'healthLog'
@@ -12,7 +17,7 @@ export default function VetTransactionLogs() {
   // FORM STATES
   const [diagnosisForm, setDiagnosisForm] = useState({
     severity: "safe",
-    diseasePreset: "", // "African Swine Fever (ASF)", "Avian Influenza", "Foot and Mouth Disease (FMD)", "Other"
+    diseasePreset: "",
     customDisease: "",
   });
   const [healthLogForm, setHealthLogForm] = useState({
@@ -42,7 +47,7 @@ export default function VetTransactionLogs() {
     }
   };
 
-  // --- FILTERS ---
+  // --- BASE FILTERS ---
   const pendingTransactions = transactions.filter(
     (t) => t.severity === "Ongoing" || !t.severity,
   );
@@ -51,11 +56,53 @@ export default function VetTransactionLogs() {
     (t) => t.severity && t.severity !== "Ongoing",
   );
 
+  // --- FILTERING & SORTING LOGIC ---
+  const processedTransactions = useMemo(() => {
+    const baseList =
+      activeTab === "pending" ? pendingTransactions : managedTransactions;
+
+    return baseList
+      .filter((tx) => {
+        // 1. Search Logic
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          (tx.batchId || "legacy").toLowerCase().includes(query) ||
+          (tx.fullName || "").toLowerCase().includes(query) ||
+          (tx.location || "").toLowerCase().includes(query) ||
+          (tx.species || "").toLowerCase().includes(query);
+
+        // 2. Severity Filter Logic (Mainly useful for 'managed' tab)
+        const matchesSeverity =
+          filterSeverity === "All" || tx.severity === filterSeverity;
+
+        return matchesSearch && matchesSeverity;
+      })
+      .sort((a, b) => {
+        // 3. Sorting Logic
+        const dateA = new Date(a.timestamp).getTime();
+        const dateB = new Date(b.timestamp).getTime();
+        return sortConfig === "newest" ? dateB - dateA : dateA - dateB;
+      });
+  }, [
+    activeTab,
+    pendingTransactions,
+    managedTransactions,
+    searchQuery,
+    filterSeverity,
+    sortConfig,
+  ]);
+
+  // When switching tabs, reset the severity filter since 'pending' only has 'Ongoing'
+  const handleTabSwitch = (tab) => {
+    setActiveTab(tab);
+    setFilterSeverity("All");
+  };
+
   // --- ACTIONS ---
   const openModal = (type, tx) => {
     setModalType(type);
     setSelectedTx(tx);
-    // Logic to map existing custom diseases to the dropdown
+
     const existingDisease = tx.diagnosedDisease || "";
     const standardDiseases = [
       "African Swine Fever (ASF)",
@@ -65,7 +112,6 @@ export default function VetTransactionLogs() {
     ];
     const isStandard = standardDiseases.includes(existingDisease);
 
-    // Reset Forms
     setDiagnosisForm({
       severity: tx.severity === "Ongoing" ? "safe" : tx.severity,
       diseasePreset: isStandard ? existingDisease : "Other",
@@ -77,6 +123,7 @@ export default function VetTransactionLogs() {
       name: "",
       notes: "",
       nextDueDate: "",
+      proofFile: null,
     });
   };
 
@@ -85,14 +132,13 @@ export default function VetTransactionLogs() {
     setSelectedTx(null);
   };
 
-  // 1. SUBMIT INITIAL DIAGNOSIS or STATUS UPDATE
   const handleDiagnosisSubmit = async () => {
     const storedUser = localStorage.getItem("user");
     if (!storedUser) return alert("You are not logged in.");
     const currentUser = JSON.parse(storedUser);
 
     if (currentUser.mspId !== "VetMSP") return alert("Access Denied.");
-    // Determine final disease string based on dropdown
+
     const finalDisease =
       diagnosisForm.severity === "safe"
         ? "None"
@@ -100,7 +146,6 @@ export default function VetTransactionLogs() {
           ? diagnosisForm.customDisease
           : diagnosisForm.diseasePreset;
 
-    // Validation
     if (diagnosisForm.severity !== "safe" && !finalDisease.trim()) {
       return alert("Please select or type a specific disease.");
     }
@@ -112,7 +157,7 @@ export default function VetTransactionLogs() {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            status: "Verified by Vet", // Standardize status
+            status: "Verified by Vet",
             diagnosedDisease: finalDisease,
             severity: diagnosisForm.severity,
             username: currentUser.username,
@@ -125,12 +170,10 @@ export default function VetTransactionLogs() {
 
       const updatedTx = await res.json();
 
-      // Update Local State
       setTransactions((prev) =>
         prev.map((tx) => (tx._id === updatedTx._id ? updatedTx : tx)),
       );
 
-      // If it was a 'Pending' item, switch tab to 'Managed' to show user where it went
       if (activeTab === "pending") setActiveTab("managed");
 
       closeModal();
@@ -140,13 +183,11 @@ export default function VetTransactionLogs() {
     }
   };
 
-  // 2. SUBMIT HEALTH RECORD (Vaccine/Test)
   const handleHealthLogSubmit = async () => {
     const storedUser = localStorage.getItem("user");
     const currentUser = JSON.parse(storedUser);
 
     try {
-      // Use FormData instead of JSON to handle the file
       const formData = new FormData();
       formData.append("batchId", selectedTx.batchId || selectedTx._id);
       formData.append("type", healthLogForm.type);
@@ -157,15 +198,12 @@ export default function VetTransactionLogs() {
       formData.append("mspId", currentUser.mspId);
       formData.append("status", "Valid");
 
-      // Append the file if it exists
       if (healthLogForm.proofFile) {
         formData.append("proofFile", healthLogForm.proofFile);
       }
 
       const res = await fetch("http://localhost:3001/api/health-records", {
         method: "POST",
-        // Do NOT set Content-Type to application/json.
-        // Fetch will automatically set it to multipart/form-data when using FormData.
         body: formData,
       });
 
@@ -184,192 +222,261 @@ export default function VetTransactionLogs() {
   };
 
   return (
-    <div className="p-6 bg-slate-50 min-h-screen w-full">
-      <div className="flex justify-between items-center mb-8">
+    <div className="p-6 md:p-10 bg-slate-50 min-h-screen w-full font-sans">
+      {/* HEADER SECTION */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-800">
-            Veterinary Dashboard
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight">
+            Veterinary Medical Ledger
           </h1>
-          <p className="text-slate-500">Manage triage and medical records</p>
+          <p className="text-slate-500 font-medium mt-1">
+            Manage active triage, diagnoses, and medical logs.
+          </p>
         </div>
 
         {/* TAB SWITCHER */}
-        <div className="bg-white p-1 rounded-xl shadow-sm border border-slate-200 flex">
+        <div className="bg-white p-1 rounded-xl shadow-sm border border-slate-200 flex w-full md:w-auto">
           <button
-            onClick={() => setActiveTab("pending")}
-            className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "pending" ? "bg-emerald-500 text-white shadow-md" : "text-slate-500 hover:bg-slate-50"}`}
+            onClick={() => handleTabSwitch("pending")}
+            className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === "pending" ? "bg-emerald-500 text-white shadow-md" : "text-slate-500 hover:bg-slate-50"}`}
           >
             Pending Triage ({pendingTransactions.length})
           </button>
           <button
-            onClick={() => setActiveTab("managed")}
-            className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "managed" ? "bg-blue-600 text-white shadow-md" : "text-slate-500 hover:bg-slate-50"}`}
+            onClick={() => handleTabSwitch("managed")}
+            className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === "managed" ? "bg-blue-600 text-white shadow-md" : "text-slate-500 hover:bg-slate-50"}`}
           >
             Managed Inventory ({managedTransactions.length})
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden flex flex-col">
+        {/* DATA TOOLBAR */}
+        <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col lg:flex-row justify-between gap-4 items-center">
+          {/* SEARCH */}
+          <div className="relative w-full lg:w-96">
+            <span className="absolute left-4 top-2.5 text-slate-400">🔍</span>
+            <input
+              type="text"
+              placeholder="Search Batch ID, Farmer, or Location..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm shadow-sm transition-all"
+            />
+          </div>
+
+          {/* FILTERS & SORT */}
+          <div className="flex gap-3 w-full lg:w-auto">
+            {/* Only show Severity filter on the Managed tab */}
+            {activeTab === "managed" && (
+              <select
+                value={filterSeverity}
+                onChange={(e) => setFilterSeverity(e.target.value)}
+                className="flex-1 lg:w-48 bg-white border border-slate-200 text-slate-700 py-2.5 px-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm shadow-sm cursor-pointer"
+              >
+                <option value="All">All Statuses</option>
+                <option value="safe">✅ Healthy Only</option>
+                <option value="mild">⚠️ Mild Illness Only</option>
+                <option value="dangerous">⛔ Dangerous Only</option>
+              </select>
+            )}
+
+            <select
+              value={sortConfig}
+              onChange={(e) => setSortConfig(e.target.value)}
+              className="flex-1 lg:w-48 bg-white border border-slate-200 text-slate-700 py-2.5 px-4 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm shadow-sm cursor-pointer"
+            >
+              <option value="newest">Sort: Newest First</option>
+              <option value="oldest">Sort: Oldest First</option>
+            </select>
+          </div>
+        </div>
+
+        {/* TABLE */}
         {loading ? (
-          <div className="p-12 text-center text-slate-400">
-            Loading records...
+          <div className="p-16 flex flex-col items-center justify-center">
+            <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+            <p className="text-slate-400 font-medium">Loading records...</p>
           </div>
         ) : (
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase">
-                  Batch ID
-                </th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase">
-                  Farmer / Location
-                </th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase">
-                  Animal
-                </th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase text-center">
-                  Status
-                </th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase text-center">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {(activeTab === "pending"
-                ? pendingTransactions
-                : managedTransactions
-              ).map((tx) => {
-                // If it is in any state regarding transfer, lock the buttons.
-                const isLocked = [
-                  "Pending Transfer",
-                  "Pending Regulator Verification",
-                  "Pending Vet Review",
-                ].includes(tx.status);
-
-                return (
-                  <tr key={tx._id} className="hover:bg-slate-50/80 transition">
-                    <td className="p-4">
-                      <span className="font-mono text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">
-                        {tx.batchId || "LEGACY"}
-                      </span>
-                      <div className="text-xs text-slate-400 mt-1">
-                        {formatDate(tx.timestamp)}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="font-bold text-slate-700">
-                        {tx.fullName}
-                      </div>
-                      <div className="text-xs text-slate-500">
-                        {tx.location}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <span className="font-bold text-slate-800">
-                        {tx.quantity}x {tx.species}
-                      </span>
-                      <div className="text-xs text-slate-500 italic">
-                        "{tx.healthStatus}"
-                      </div>
-                    </td>
-                    <td className="p-4 text-center">
-                      {tx.severity === "safe" && (
-                        <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
-                          Healthy
-                        </span>
-                      )}
-                      {(tx.severity === "mild" ||
-                        tx.severity === "dangerous") && (
-                        <span className="px-3 py-1 rounded-full bg-red-100 text-red-700 text-xs font-bold">
-                          Sick: {tx.diagnosedDisease}
-                        </span>
-                      )}
-                      {(!tx.severity || tx.severity === "Ongoing") && (
-                        <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">
-                          Unverified
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="p-4 text-center">
-                      {/* RENDER LOGIC BASED ON isLocked */}
-                      {isLocked ? (
-                        <div className="relative group inline-block">
-                          <button
-                            disabled
-                            className="cursor-not-allowed bg-slate-100 text-slate-400 px-4 py-2 rounded-lg text-xs font-bold border border-slate-200 flex items-center gap-2"
-                          >
-                            🔒 Locked
-                          </button>
-                          {/* Hover Tooltip */}
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-800 text-white text-[10px] p-2 rounded shadow-lg text-center z-10">
-                            Action disabled. This asset is currently undergoing
-                            a Transfer or Exit workflow.
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex justify-center gap-2">
-                          {activeTab === "pending" ? (
-                            <button
-                              onClick={() => openModal("diagnose", tx)}
-                              className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm transition"
-                            >
-                              Verify & Triage
-                            </button>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => openModal("healthLog", tx)}
-                                className="bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 px-3 py-2 rounded-lg text-xs font-bold transition"
-                              >
-                                + Record
-                              </button>
-                              <button
-                                onClick={() => openModal("update", tx)}
-                                className="bg-slate-100 text-slate-600 hover:bg-slate-200 px-3 py-2 rounded-lg text-xs font-bold transition"
-                              >
-                                Update Status
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b border-slate-100">
+                <tr>
+                  <th className="p-5 pl-8 text-xs font-bold text-slate-400 uppercase tracking-widest">
+                    Batch ID & Date
+                  </th>
+                  <th className="p-5 text-xs font-bold text-slate-400 uppercase tracking-widest">
+                    Farmer / Location
+                  </th>
+                  <th className="p-5 text-xs font-bold text-slate-400 uppercase tracking-widest">
+                    Animal Details
+                  </th>
+                  <th className="p-5 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">
+                    Health Status
+                  </th>
+                  <th className="p-5 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {processedTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="p-16 text-center">
+                      <div className="text-4xl mb-3 opacity-30">📭</div>
+                      <p className="text-slate-500 font-bold text-lg">
+                        No matching records
+                      </p>
+                      <p className="text-slate-400 text-sm mt-1">
+                        Try adjusting your search or filter settings.
+                      </p>
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                ) : (
+                  processedTransactions.map((tx) => {
+                    const isLocked = [
+                      "Pending Transfer",
+                      "Pending Regulator Verification",
+                      "Pending Vet Review",
+                    ].includes(tx.status);
+
+                    return (
+                      <tr
+                        key={tx._id}
+                        className="hover:bg-slate-50/80 transition-colors group"
+                      >
+                        <td className="p-5 pl-8">
+                          <span className="font-mono text-xs font-bold bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200">
+                            {tx.batchId || "LEGACY"}
+                          </span>
+                          <div className="text-xs text-slate-400 mt-2 font-medium">
+                            {formatDate(tx.timestamp)}
+                          </div>
+                        </td>
+                        <td className="p-5">
+                          <div className="font-bold text-slate-700 group-hover:text-blue-600 transition-colors">
+                            {tx.fullName}
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                            📍 {tx.location}
+                          </div>
+                        </td>
+                        <td className="p-5">
+                          <span className="font-black text-slate-800 text-base block mb-1">
+                            {tx.quantity}x {tx.species}
+                          </span>
+                          <div
+                            className="text-xs text-slate-500 italic bg-slate-50 p-2 rounded w-fit border border-slate-100 line-clamp-1 max-w-[200px]"
+                            title={tx.healthStatus}
+                          >
+                            "{tx.healthStatus}"
+                          </div>
+                        </td>
+                        <td className="p-5 text-center">
+                          {tx.severity === "safe" && (
+                            <span className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest border border-emerald-100">
+                              ✅ Healthy
+                            </span>
+                          )}
+                          {tx.severity === "mild" && (
+                            <span className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-[10px] font-black uppercase tracking-widest border border-amber-100">
+                              ⚠️ {tx.diagnosedDisease}
+                            </span>
+                          )}
+                          {tx.severity === "dangerous" && (
+                            <span className="px-3 py-1.5 rounded-lg bg-red-50 text-red-700 text-[10px] font-black uppercase tracking-widest border border-red-100 animate-pulse">
+                              ⛔ {tx.diagnosedDisease}
+                            </span>
+                          )}
+                          {(!tx.severity || tx.severity === "Ongoing") && (
+                            <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest border border-slate-200">
+                              ⏳ Unverified
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="p-5 text-center">
+                          {isLocked ? (
+                            <div className="relative group inline-block">
+                              <button
+                                disabled
+                                className="cursor-not-allowed bg-slate-50 text-slate-400 px-4 py-2 rounded-lg text-xs font-bold border border-slate-200 flex items-center gap-2"
+                              >
+                                🔒 Locked
+                              </button>
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-800 text-white text-[10px] p-2 rounded shadow-lg text-center z-10">
+                                Action disabled. This asset is currently
+                                undergoing a Transfer or Exit workflow.
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex justify-center gap-2">
+                              {activeTab === "pending" ? (
+                                <button
+                                  onClick={() => openModal("diagnose", tx)}
+                                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded-lg text-xs font-bold shadow-md shadow-emerald-200 transition-all active:scale-95"
+                                >
+                                  Verify & Triage
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => openModal("healthLog", tx)}
+                                    className="bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 px-3 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm"
+                                    title="Add Medical Record"
+                                  >
+                                    + Record
+                                  </button>
+                                  <button
+                                    onClick={() => openModal("update", tx)}
+                                    className="bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 px-3 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm"
+                                    title="Update Status"
+                                  >
+                                    Update
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
+
       {/* --- MODAL LOGIC --- */}
       {modalType && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
             {/* HEADER */}
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h3 className="font-bold text-lg text-slate-800">
+              <h3 className="font-black text-xl text-slate-800">
                 {modalType === "diagnose" && "Initial Verification"}
                 {modalType === "update" && "Update Health Status"}
                 {modalType === "healthLog" && "Add Medical Record"}
               </h3>
               <button
                 onClick={closeModal}
-                className="text-slate-400 hover:text-red-500"
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-100 hover:bg-red-50 transition-colors font-bold"
               >
                 ✕
               </button>
             </div>
 
             {/* BODY */}
-            <div className="p-6">
+            <div className="p-6 bg-white overflow-y-auto max-h-[80vh]">
               {/* 1. DIAGNOSIS / UPDATE FORM */}
               {(modalType === "diagnose" || modalType === "update") && (
-                <div className="space-y-4">
+                <div className="space-y-5">
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
                       Status Verdict
                     </label>
                     <select
@@ -382,7 +489,7 @@ export default function VetTransactionLogs() {
                           customDisease: "",
                         })
                       }
-                      className="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 outline-none"
+                      className="w-full border-2 border-slate-100 rounded-xl p-3.5 focus:border-emerald-500 outline-none font-bold text-slate-700 transition-colors"
                     >
                       <option value="safe">✅ Verified Healthy (Safe)</option>
                       <option value="mild">⚠️ Mild Illness (Quarantine)</option>
@@ -394,9 +501,9 @@ export default function VetTransactionLogs() {
 
                   {/* --- DYNAMIC DISEASE DROPDOWN --- */}
                   {diagnosisForm.severity !== "safe" && (
-                    <div className="space-y-4 bg-red-50/50 p-4 rounded-xl border border-red-100">
+                    <div className="space-y-4 bg-red-50/50 p-5 rounded-2xl border border-red-100">
                       <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                        <label className="block text-xs font-bold text-red-500 uppercase tracking-widest mb-2">
                           {diagnosisForm.severity === "mild"
                             ? "Condition Category"
                             : "Select Disease"}
@@ -409,13 +516,11 @@ export default function VetTransactionLogs() {
                               diseasePreset: e.target.value,
                             })
                           }
-                          className="w-full border border-red-200 rounded-lg p-3 text-red-700 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium"
+                          className="w-full border-2 border-red-200 rounded-xl p-3.5 text-red-700 bg-white focus:border-red-500 outline-none font-bold transition-colors"
                         >
                           <option value="" disabled>
                             -- Select an Option --
                           </option>
-
-                          {/* RENDER "MILD" OPTIONS */}
                           {diagnosisForm.severity === "mild" && (
                             <>
                               <option value="Respiratory Infection">
@@ -435,8 +540,6 @@ export default function VetTransactionLogs() {
                               </option>
                             </>
                           )}
-
-                          {/* RENDER "DANGEROUS" OPTIONS */}
                           {diagnosisForm.severity === "dangerous" && (
                             <>
                               <option value="African Swine Fever (ASF)">
@@ -450,16 +553,13 @@ export default function VetTransactionLogs() {
                               </option>
                             </>
                           )}
-
-                          {/* "OTHER" IS ALWAYS AVAILABLE */}
                           <option value="Other">Other (Specify)</option>
                         </select>
                       </div>
 
-                      {/* Custom Disease Input (Only shows if "Other" is selected) */}
                       {diagnosisForm.diseasePreset === "Other" && (
                         <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                          <label className="block text-xs font-bold text-red-500 uppercase tracking-widest mb-2">
                             Specify Condition
                           </label>
                           <input
@@ -472,7 +572,7 @@ export default function VetTransactionLogs() {
                                 customDisease: e.target.value,
                               })
                             }
-                            className="w-full border border-red-200 bg-white rounded-lg p-3 text-red-700 placeholder-red-300 focus:ring-2 focus:ring-red-500 outline-none"
+                            className="w-full border-2 border-red-200 bg-white rounded-xl p-3.5 text-red-700 placeholder-red-300 focus:border-red-500 outline-none font-bold transition-colors"
                           />
                         </div>
                       )}
@@ -481,7 +581,7 @@ export default function VetTransactionLogs() {
 
                   <button
                     onClick={handleDiagnosisSubmit}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl mt-4"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest py-4 rounded-xl mt-2 shadow-lg shadow-emerald-200 transition-all active:scale-[0.98]"
                   >
                     {modalType === "diagnose"
                       ? "Submit Verification"
@@ -495,7 +595,7 @@ export default function VetTransactionLogs() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
                         Record Type
                       </label>
                       <select
@@ -506,16 +606,17 @@ export default function VetTransactionLogs() {
                             type: e.target.value,
                           })
                         }
-                        className="w-full border border-slate-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700"
+                        className="w-full border-2 border-slate-100 rounded-xl p-3.5 outline-none focus:border-blue-500 font-bold text-slate-700 transition-colors"
                       >
                         <option>Vaccination</option>
                         <option>Deworming</option>
                         <option>Lab Test</option>
                         <option>Vitamin</option>
+                        <option>VHC Issuance</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
                         Next Due (Opt)
                       </label>
                       <input
@@ -527,13 +628,13 @@ export default function VetTransactionLogs() {
                             nextDueDate: e.target.value,
                           })
                         }
-                        className="w-full border border-slate-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700"
+                        className="w-full border-2 border-slate-100 rounded-xl p-3.5 outline-none focus:border-blue-500 font-bold text-slate-700 transition-colors"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
                       Name / Description
                     </label>
                     <input
@@ -546,12 +647,12 @@ export default function VetTransactionLogs() {
                           name: e.target.value,
                         })
                       }
-                      className="w-full border border-slate-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
+                      className="w-full border-2 border-slate-100 rounded-xl p-3.5 outline-none focus:border-blue-500 text-slate-700 font-bold transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
                       Notes
                     </label>
                     <textarea
@@ -563,15 +664,16 @@ export default function VetTransactionLogs() {
                           notes: e.target.value,
                         })
                       }
-                      className="w-full border border-slate-300 rounded-lg p-3 h-20 resize-none outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
+                      className="w-full border-2 border-slate-100 rounded-xl p-3.5 h-24 resize-none outline-none focus:border-blue-500 text-slate-700 transition-colors"
                     />
                   </div>
-                  <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                    <label className="block text-xs font-bold text-blue-600 uppercase mb-2">
+
+                  <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100">
+                    <label className="block text-xs font-black text-blue-600 uppercase tracking-widest mb-3 text-center">
                       Upload Proof (Optional)
                     </label>
                     <div className="flex items-center justify-center w-full">
-                      <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-blue-200 border-dashed rounded-lg cursor-pointer bg-white hover:bg-blue-50 transition-colors">
+                      <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-blue-200 border-dashed rounded-xl cursor-pointer bg-white hover:bg-blue-50 transition-colors">
                         <div className="flex flex-col items-center justify-center pt-5 pb-6">
                           <svg
                             className="w-6 h-6 mb-2 text-blue-400"
@@ -594,7 +696,7 @@ export default function VetTransactionLogs() {
                             </span>{" "}
                             or drag and drop
                           </p>
-                          <p className="text-[10px] text-slate-400">
+                          <p className="text-[10px] text-slate-400 font-medium mt-1">
                             PDF, PNG, or JPG (MAX. 5MB)
                           </p>
                         </div>
@@ -611,9 +713,8 @@ export default function VetTransactionLogs() {
                         />
                       </label>
                     </div>
-                    {/* Show selected file name */}
                     {healthLogForm.proofFile && (
-                      <p className="text-xs text-emerald-600 font-bold mt-2 text-center flex items-center justify-center gap-1">
+                      <p className="text-xs text-emerald-600 font-bold mt-3 text-center flex items-center justify-center gap-1 bg-emerald-50 py-2 rounded-lg border border-emerald-100">
                         ✅ {healthLogForm.proofFile.name}
                       </p>
                     )}
@@ -621,7 +722,7 @@ export default function VetTransactionLogs() {
 
                   <button
                     onClick={handleHealthLogSubmit}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-wider py-4 rounded-xl mt-2 shadow-lg shadow-blue-200 transition-all active:scale-[0.98]"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest py-4 rounded-xl mt-4 shadow-lg shadow-blue-200 transition-all active:scale-[0.98]"
                   >
                     Save to Digital Log
                   </button>
