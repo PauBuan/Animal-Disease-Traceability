@@ -66,12 +66,6 @@ const AdminLogin = () => {
               Home
             </a>
             <a
-              href="/dashboard"
-              className="hover:text-[var(--light-green)] transition-all duration-200"
-            >
-              Dashboards
-            </a>
-            <a
               href="/login"
               className="hover:text-[var(--light-green)] transition-all duration-200"
             >

@@ -42,11 +42,10 @@ export default function AdminAlert() {
 
     try {
       const response = await fetch(`http://localhost:3001/api/delete-alert/${id}`, {
-        method: "DELETE", // Changed from POST to DELETE
+        method: "DELETE",
       });
 
       if (response.ok) {
-        // Refresh the list locally by filtering out the deleted ID
         setHistory(prev => prev.filter(item => item._id !== id));
       } else {
         const errorData = await response.json();
@@ -252,26 +251,14 @@ export default function AdminAlert() {
       {/* MODAL FOR HISTORY ALERT LOGS (ADMIN VIEW) */}
       {isHistoryModalOpen && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 sm:p-6">
-          {/* Backdrop */}
           <div
             className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
             onClick={() => setIsHistoryModalOpen(false)}
           />
 
-          {/* Modal card */}
-          <div className="
-            relative w-full max-w-2xl max-h-[90vh] 
-            bg-white rounded-3xl shadow-xl 
-            flex flex-col overflow-hidden
-            border border-slate-100
-          ">
-            {/* Header */}
-            <div className="
-              px-7 py-6 
-              border-b border-slate-100 
-              flex items-center justify-between 
-              bg-white sticky top-0 z-10
-            ">
+          <div className="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-3xl shadow-xl flex flex-col overflow-hidden border border-slate-100">
+            {/* Modal Header */}
+            <div className="px-7 py-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight uppercase">
                   Alert Archive
@@ -280,15 +267,9 @@ export default function AdminAlert() {
                   Management & Transmission Logs
                 </p>
               </div>
-
               <button
                 onClick={() => setIsHistoryModalOpen(false)}
-                className="
-                  p-2 rounded-full 
-                  text-slate-500 hover:text-slate-800 
-                  hover:bg-slate-100 
-                  transition-colors
-                "
+                className="p-2 rounded-full text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -296,72 +277,77 @@ export default function AdminAlert() {
               </button>
             </div>
 
-            {/* Content */}
+            {/* Modal Content */}
             <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 bg-slate-50/40">
               {history.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full py-16 text-center">
                   <p className="text-slate-400 font-medium text-lg">No broadcasts found.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {history.map((item) => (
                     <div
                       key={item._id}
-                      className="
-                        group bg-white rounded-2xl 
-                        border border-slate-100 
-                        p-5 sm:p-6 
-                        hover:border-red-200 hover:shadow-md
-                        transition-all
-                        flex flex-col sm:flex-row sm:items-center sm:justify-between
-                        gap-4
-                      "
+                      className="relative bg-white rounded-[1.75rem] border border-slate-200/60 p-5 sm:p-6 hover:shadow-xl transition-all duration-300 flex flex-col gap-4 group"
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2 flex-wrap">
-                          <span className={`
-                            inline-flex items-center px-2.5 py-0.5 
-                            rounded-full text-[10px] font-black uppercase tracking-wider
-                            ${
-                              item.severity === 'Critical'
-                                ? 'bg-red-100 text-red-700'
-                                : item.severity === 'Warning'
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-emerald-100 text-emerald-700'
-                            }
-                          `}>
+                      {/* Status Indicator Line */}
+                      <div className={`absolute left-0 top-6 bottom-6 w-1 rounded-r-full ${
+                        item.severity === 'Critical' ? 'bg-red-500' : 
+                        item.severity === 'Warning' ? 'bg-amber-500' : 'bg-emerald-500'
+                      }`} />
+
+                      {/* Header Info */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${
+                            item.severity === 'Critical' ? 'bg-red-600 text-white' : 
+                            item.severity === 'Warning' ? 'bg-amber-500 text-white' : 'bg-emerald-600 text-white'
+                          }`}>
                             {item.severity}
                           </span>
-
-                          <time className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                            {new Date(item.date).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                            })}
+                          <time className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            {new Date(item.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                           </time>
                         </div>
-
-                        <h4 className="text-lg font-black text-slate-800 leading-tight uppercase">
-                          {item.title}
-                        </h4>
-
-                        <div className="text-[11px] font-bold text-slate-500 mt-1 uppercase tracking-tighter">
-                          Target: <span className="text-slate-700">{item.species}</span>
-                          <span className="mx-2 text-slate-300">•</span>
-                          Area: <span className="text-slate-700">{item.targetBarangay}</span>
+                        
+                        {/* METADATA SECTION: Includes Species, Location, and Barangay */}
+                        <div className="flex flex-col gap-1 text-[10px] font-bold self-start sm:self-auto">
+                          <div className="text-slate-400 bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">
+                            {item.species} • {item.location}
+                          </div>
+                          <div className="px-3">
+                            <span className="text-slate-400">Barangay:</span> 
+                            <span className="text-slate-900 font-bold ml-1">{item.targetBarangay}</span>
+                          </div>
                         </div>
                       </div>
 
-                      {/* DELETE ACTION */}
+                      {/* Title & Body */}
+                      <div className="pr-12"> {/* Added padding-right to avoid delete button overlap */}
+                        <h4 className="text-xl font-black text-slate-900 leading-tight mb-2 uppercase tracking-tight">
+                          {item.title}
+                        </h4>
+                        <p className="text-sm text-slate-600 font-medium leading-relaxed mb-4">
+                          {item.details || item.description}
+                        </p>
+
+                        {item.instruction && (
+                          <div className={`p-4 rounded-xl border-l-4 ${
+                            item.severity === 'Critical' ? 'bg-red-50 border-red-500 text-red-900' : 
+                            item.severity === 'Warning' ? 'bg-amber-50 border-amber-500 text-amber-900' : 'bg-emerald-50 border-emerald-500 text-emerald-900'
+                          }`}>
+                            <p className="text-[10px] font-black uppercase tracking-[0.1em] mb-1">Required Action:</p>
+                            <p className="text-xs font-bold leading-snug">
+                              {item.instruction}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* DELETE ACTION - Positioned absolutely inside card */}
                       <button 
                         onClick={() => handleDelete(item._id)}
-                        className="
-                          p-3 bg-slate-50 text-slate-400 rounded-xl 
-                          hover:bg-red-50 hover:text-red-600 
-                          transition-all opacity-0 group-hover:opacity-100
-                          border border-transparent hover:border-red-100
-                        "
+                        className="absolute top-6 right-6 p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all opacity-0 group-hover:opacity-100 border border-transparent hover:border-red-100"
                         title="Delete Log"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -374,7 +360,7 @@ export default function AdminAlert() {
               )}
             </div>
 
-            {/* Footer */}
+            {/* Modal Footer */}
             <div className="px-8 py-5 border-t border-slate-100 text-center bg-white">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
                 End of Logs • {history.length} Record{history.length !== 1 ? 's' : ''}

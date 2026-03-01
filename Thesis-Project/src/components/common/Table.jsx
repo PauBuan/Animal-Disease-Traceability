@@ -23,7 +23,6 @@ export default function BarangayHealthTable() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  // --------------------------
 
   const VALID_BARANGAYS = [
     "Aplaya", "Balibago", "Caingin", "Dila", "Dita", "Don Jose", "Ibaba",
@@ -31,7 +30,7 @@ export default function BarangayHealthTable() {
     "Pooc", "Pulong Santa Cruz", "Santo Domingo", "Sinalhan", "Tagapo"
   ];
 
-  const SPECIES_LIST = ["Hog", "Cow", "Chicken", "Carabao", "Goat", "Ducks"];
+  const SPECIES_LIST = ["Hog", "Cow", "Chicken", "Carabao", "Goat", "Duck"];
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
@@ -458,80 +457,90 @@ export default function BarangayHealthTable() {
             onClick={() => setIsModalOpen(false)}
           ></div>
 
-          <div className="relative bg-[#F8FAFC] w-full max-w-6xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+          <div className="relative bg-[#F8FAFC] w-full max-w-6xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300 flex flex-col">
             
             {/* Modal Header */}
-            <div className="bg-white px-10 py-8 flex justify-between items-center border-b border-slate-100">
+            <div className="bg-white px-10 py-6 flex justify-between items-center border-b border-slate-100">
               <div className="flex items-center gap-5">
-                <div className="p-4 bg-emerald-600 text-white rounded-2xl text-2xl shadow-lg shadow-emerald-200">
+                <div className="p-3 bg-emerald-600 text-white rounded-2xl text-xl shadow-lg shadow-emerald-200">
                   📊
                 </div>
                 <div>
-                  <h2 className="text-3xl font-black text-slate-900 tracking-tight uppercase leading-none">
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase leading-none">
                     Species Breakdown
                   </h2>
-                  <p className="text-emerald-600 font-bold text-xs uppercase tracking-[0.2em] mt-2">
+                  <p className="text-emerald-600 font-bold text-[10px] uppercase tracking-[0.2em] mt-1">
                     {modalTitle}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="w-12 h-12 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all text-2xl"
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all text-xl"
               >
                 ✕
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6 flex-grow overflow-hidden bg-[#F8FAFC]">
-              <div className="flex flex-col h-full gap-2">
+            {/* Modal Body - REMOVED overflow-y-auto to stop scrolling */}
+            <div className="p-8 bg-[#F8FAFC]">
+              <div className="flex flex-col gap-3">
                 
                 {/* Header Row */}
-                <div className="grid grid-cols-12 px-6 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">
+                <div className={`grid ${isCityWideView ? 'grid-cols-12' : 'grid-cols-9'} px-8 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-1`}>
                   <div className="col-span-3">Animal</div>
                   <div className="col-span-2 text-center">Healthy</div>
                   <div className="col-span-2 text-center">Sick</div>
                   <div className="col-span-2 text-center">Unverified</div>
-                  <div className="col-span-1.5 text-center">Exp.</div>
-                  <div className="col-span-1.5 text-center">Slaught.</div>
+                  {isCityWideView && (
+                    <>
+                      <div className="col-span-1.5 text-center">Exp.</div>
+                      <div className="col-span-1.5 text-center">Slaught.</div>
+                    </>
+                  )}
                 </div>
 
-                {/* Species Cards */}
+                {/* Species Cards - Reduced padding to fit all rows */}
                 <div className="flex flex-col gap-2">
                   {SPECIES_LIST.map(name => {
-                    const icons = { Hog: "🐖", Cow: "🐄", Chicken: "🐓", Carabao: "🐃", Goat: "🐐", Ducks: "🦆" };
+                    const icons = { Hog: "🐖", Cow: "🐄", Chicken: "🐓", Carabao: "🐃", Goat: "🐐", Duck: "🦆" };
+                    const data = currentModalData[name] || { healthy: 0, sick: 0, unverified: 0, exported: 0, slaughtered: 0 };
+                    
                     return (
-                      <div key={name} className="grid grid-cols-12 items-center bg-white py-3 px-6 rounded-xl border border-slate-100 shadow-sm">
-                        <div className="col-span-3 flex items-center gap-3">
+                      <div key={name} className={`grid ${isCityWideView ? 'grid-cols-12' : 'grid-cols-9'} items-center bg-white py-3 px-8 rounded-2xl border border-slate-100 shadow-sm hover:border-emerald-200 transition-all`}>
+                        <div className="col-span-3 flex items-center gap-4">
                           <span className="text-2xl leading-none">{icons[name] || "🐾"}</span>
-                          <span className="font-black text-slate-700 text-sm uppercase tracking-tight">{name}</span>
+                          <span className="font-black text-slate-800 text-base uppercase tracking-tight">{name}</span>
                         </div>
                         
                         <div className="col-span-2 flex justify-center">
-                          <div className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg font-black text-lg w-20 text-center">
-                            {currentModalData[name]?.healthy || 0}
+                          <div className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-xl font-black text-lg w-20 text-center border border-emerald-100">
+                            {data.healthy}
                           </div>
                         </div>
 
                         <div className="col-span-2 flex justify-center">
-                          <div className={`${(currentModalData[name]?.sick || 0) > 0 ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-300'} px-3 py-1.5 rounded-lg font-black text-lg w-20 text-center`}>
-                            {currentModalData[name]?.sick || 0}
+                          <div className={`${data.sick > 0 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-300 border-transparent'} px-3 py-1.5 rounded-xl font-black text-lg w-20 text-center border`}>
+                            {data.sick}
                           </div>
                         </div>
 
                         <div className="col-span-2 flex justify-center">
-                          <div className={`${(currentModalData[name]?.unverified || 0) > 0 ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-300'} px-3 py-1.5 rounded-lg font-black text-lg w-20 text-center`}>
-                            {currentModalData[name]?.unverified || 0}
+                          <div className={`${data.unverified > 0 ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-slate-50 text-slate-300 border-transparent'} px-3 py-1.5 rounded-xl font-black text-lg w-20 text-center border`}>
+                            {data.unverified}
                           </div>
                         </div>
 
-                        <div className="col-span-1.5 flex justify-center">
-                          <span className="text-blue-600 font-black text-lg">{currentModalData[name]?.exported || 0}</span>
-                        </div>
-                        <div className="col-span-1.5 flex justify-center">
-                          <span className="text-rose-600 font-black text-lg">{currentModalData[name]?.slaughtered || 0}</span>
-                        </div>
+                        {isCityWideView && (
+                          <>
+                            <div className="col-span-1.5 flex justify-center">
+                              <span className="text-blue-600 font-black text-lg">{data.exported}</span>
+                            </div>
+                            <div className="col-span-1.5 flex justify-center">
+                              <span className="text-rose-600 font-black text-lg">{data.slaughtered}</span>
+                            </div>
+                          </>
+                        )}
                       </div>
                     );
                   })}
@@ -540,10 +549,10 @@ export default function BarangayHealthTable() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-10 py-8 bg-white border-t border-slate-100 flex justify-end">
+            <div className="px-10 py-6 bg-white border-t border-slate-100 flex justify-end">
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="bg-slate-900 hover:bg-black text-white px-12 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-xl active:scale-95"
+                className="bg-slate-900 hover:bg-black text-white px-10 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95"
               >
                 Close Dashboard
               </button>
@@ -554,19 +563,9 @@ export default function BarangayHealthTable() {
 
       {/* Bottom Buttons */}
       <div className="flex flex-col sm:flex-row justify-center items-center gap-6 pt-6 pb-16 print:hidden">
-        <button
-          onClick={() => navigate(-1)}
-          className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all min-w-[220px]"
-        >
-          ← Return to Home
-        </button>
-
-        <button
-          onClick={handlePrintReport}
-          className="bg-slate-700 hover:bg-slate-800 text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all shadow-md min-w-[220px]"
-        >
-          Download / Print Report
-        </button>
+        <button onClick={() => navigate("/home")} className="px-8 sm:px-10 py-4 sm:py-5 bg-slate-800 text-white rounded-2xl font-black text-base sm:text-lg transition-all shadow-xl hover:bg-slate-700 active:scale-95 w-full sm:w-auto">
+            ← Return to Home
+          </button>
       </div>
     </div>
   );

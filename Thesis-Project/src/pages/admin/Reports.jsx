@@ -28,7 +28,7 @@ export default function AdminAnalytics() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
   const [currentModalData, setCurrentModalData] = useState({});
-  const SPECIES_LIST = ["Hog", "Cow", "Chicken", "Carabao", "Goat", "Ducks"];
+  const SPECIES_LIST = ["Hog", "Cow", "Chicken", "Carabao", "Goat", "Duck"];
 
   // --- FILTER STATES ---
   const currentYear = 2026;
@@ -52,7 +52,7 @@ export default function AdminAnalytics() {
     Chicken: "🐓",
     Carabao: "🐃",
     Goat: "🐐",
-    Ducks: "🦆",
+    Duck: "🦆",
   };
 
   //Comparison Year
@@ -418,9 +418,9 @@ export default function AdminAnalytics() {
             <p className="text-5xl font-black text-white">{stats.avgSick}</p>
           </div>
 
-          <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 flex flex-col justify-center shadow-xl hover:-translate-y-1 hover:shadow-2xl transition-all duration-300">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Peak Month</p>
-            <p className="text-5xl font-black text-slate-900 uppercase tracking-tighter">{stats.peakMonth}</p>
+          <div className="bg-red-600 border border-red-500 rounded-[2.5rem] p-8 flex flex-col justify-center shadow-xl hover:-translate-y-1 hover:shadow-2xl transition-all duration-300">
+            <p className="text-[10px] font-black text-red-200 uppercase tracking-[0.2em] mb-2">Peak Month</p>
+            <p className="text-5xl font-black text-white uppercase tracking-tighter">{stats.peakMonth}</p>
           </div>
 
           <div className={`rounded-[2.5rem] p-8 flex flex-col justify-center border shadow-xl hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 ${
