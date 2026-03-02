@@ -79,11 +79,13 @@ export default function MedicalLogModal({
                   {healthLogs.map((log, i) => (
                     <tr
                       key={i}
-                      className="hover:bg-blue-50/30 transition-colors group"
+                      className={`transition-colors group ${log.isInherited ? "bg-slate-50/50 hover:bg-slate-100/50" : "hover:bg-blue-50/30"}`}
                     >
                       {/* Date */}
                       <td className="py-5 px-6 align-top">
-                        <span className="font-bold text-slate-700 block">
+                        <span
+                          className={`font-bold block ${log.isInherited ? "text-slate-500" : "text-slate-700"}`}
+                        >
                           {formatDate(log.date)}
                         </span>
                         <div
@@ -95,14 +97,24 @@ export default function MedicalLogModal({
 
                       {/* Type Badge */}
                       <td className="py-5 px-6 align-top">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-blue-600 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-lg whitespace-nowrap">
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-widest border px-3 py-1.5 rounded-lg whitespace-nowrap block w-fit ${log.isInherited ? "text-slate-500 bg-slate-100 border-slate-200" : "text-blue-600 bg-blue-50 border-blue-100"}`}
+                        >
                           {log.type}
                         </span>
+                        {/* THE INHERITED TAG */}
+                        {log.isInherited && (
+                          <span className="mt-2 text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full block w-fit">
+                            Inherited
+                          </span>
+                        )}
                       </td>
 
                       {/* Description & Notes */}
                       <td className="py-5 px-6 align-top">
-                        <h4 className="font-bold text-slate-800 text-sm mb-1">
+                        <h4
+                          className={`font-bold text-sm mb-1 ${log.isInherited ? "text-slate-600" : "text-slate-800"}`}
+                        >
                           {log.name}
                         </h4>
                         {log.notes ? (
@@ -115,13 +127,13 @@ export default function MedicalLogModal({
                           </p>
                         )}
 
-                        {/* Placeholder for future Proof of Vaccination file */}
+                        {/* Proof of Vaccination */}
                         {log.proofUrl && (
                           <a
                             href={log.proofUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="mt-3 inline-flex items-center gap-1 text-[10px] font-bold text-blue-500 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded"
+                            className={`mt-3 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded ${log.isInherited ? "text-slate-500 hover:text-slate-700 bg-slate-100" : "text-blue-500 hover:text-blue-700 bg-blue-50"}`}
                           >
                             📎 View Attached Proof
                           </a>
@@ -142,10 +154,14 @@ export default function MedicalLogModal({
                       {/* Administered By */}
                       <td className="py-5 px-6 align-top">
                         <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                          <div
+                            className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${log.isInherited ? "bg-slate-200 text-slate-400" : "bg-blue-100 text-blue-600"}`}
+                          >
                             V
                           </div>
-                          <span className="text-sm font-medium text-slate-700">
+                          <span
+                            className={`text-sm font-medium ${log.isInherited ? "text-slate-500" : "text-slate-700"}`}
+                          >
                             {log.vetUsername}
                           </span>
                         </div>

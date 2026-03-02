@@ -1,4 +1,3 @@
-// src/components/common/AuditTrailModal.jsx
 import React, { useMemo } from "react";
 
 export default function AuditTrailModal({
@@ -16,15 +15,12 @@ export default function AuditTrailModal({
   };
 
   // --- ORIGIN TRACE LOGIC ---
-  // 1. Sort history chronologically (oldest to newest)
-  // 2. Extract locations, ignoring consecutive duplicates
   const movementPath = useMemo(() => {
     if (!history || history.length === 0) return [];
-
+    // Movement path still needs to be calculated chronologically (oldest to newest)
     const chronological = [...history].sort(
       (a, b) => new Date(a.data.timestamp) - new Date(b.data.timestamp),
     );
-
     const path = [];
     chronological.forEach((item) => {
       const loc = item.data.location;
@@ -33,6 +29,14 @@ export default function AuditTrailModal({
       }
     });
     return path;
+  }, [history]);
+
+  // --- NEW: REVERSE CHRONOLOGICAL SORT FOR TIMELINE ---
+  const sortedHistory = useMemo(() => {
+    if (!history) return [];
+    return [...history].sort(
+      (a, b) => new Date(b.data.timestamp) - new Date(a.data.timestamp),
+    );
   }, [history]);
 
   return (
@@ -46,8 +50,11 @@ export default function AuditTrailModal({
             </h3>
             {selectedAnimal && (
               <p className="text-emerald-500 text-sm font-bold uppercase tracking-tighter">
-                {selectedAnimal.batchId || "Legacy"} - {selectedAnimal.species}{" "}
-                ({selectedAnimal.quantity} heads)
+                {selectedAnimal.batchId ||
+                  (sortedHistory.length > 0
+                    ? sortedHistory[0].data.batchId
+                    : "Legacy")}{" "}
+                - {selectedAnimal.species} ({selectedAnimal.quantity} heads)
               </p>
             )}
           </div>
@@ -64,16 +71,16 @@ export default function AuditTrailModal({
             <div className="flex flex-col items-center py-20">
               <div className="w-10 h-10 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mb-4"></div>
               <p className="text-slate-400 font-medium">
-                Fetching from Peer Nodes...
+                Fetching Cryptographic Ledger...
               </p>
             </div>
-          ) : history.length === 0 ? (
+          ) : sortedHistory.length === 0 ? (
             <p className="text-center text-slate-400 py-10 italic">
               No blockchain records found.
             </p>
           ) : (
             <>
-              {/* --- NEW: VISUAL MOVEMENT TRACE --- */}
+              {/* --- VISUAL MOVEMENT TRACE --- */}
               {movementPath.length > 0 && (
                 <div className="mb-8 p-5 bg-white border border-slate-200 rounded-2xl shadow-sm">
                   <h4 className="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest">
@@ -95,100 +102,130 @@ export default function AuditTrailModal({
                 </div>
               )}
 
-              {/* TIMELINE */}
+              {/* TIMELINE (Now Newest First) */}
               <div className="space-y-0 mt-4">
-                {history.map((item, i) => (
-                  <div key={i} className="relative pl-10 pb-10 group">
-                    {/* Timeline Line */}
-                    {i !== history.length - 1 && (
-                      <div className="absolute left-[11px] top-6 bottom-0 w-0.5 bg-slate-200 group-hover:bg-emerald-200 transition-colors"></div>
-                    )}
+                {sortedHistory.map((item, i) => {
+                  // Because we are going backwards in time (newest to oldest):
+                  // The Split Event happened right before the FIRST INHERITED item appears.
+                  const isFirstParentEvent =
+                    item.isInherited &&
+                    i > 0 &&
+                    !sortedHistory[i - 1].isInherited;
 
-                    {/* Node Dot */}
-                    <div className="absolute left-0 top-1 w-6 h-6 rounded-full border-4 border-white bg-emerald-500 shadow-md shadow-emerald-200 z-10"></div>
-
-                    <div className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-emerald-500/30 transition-all hover:shadow-xl hover:shadow-slate-200/50">
-                      <div className="flex justify-between items-start mb-4">
-                        <span className="bg-slate-900 text-white text-[10px] px-2 py-1 rounded font-mono uppercase tracking-widest">
-                          TX: {item.txId.substring(0, 12)}...
-                        </span>
-                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-                          {formatDate(item.data.timestamp)}
-                        </span>
-                      </div>
-
-                      <p className="text-lg font-black text-slate-800 mb-4">
-                        {item.data.status || "State Update"}
-                      </p>
-
-                      <div className="grid grid-cols-2 gap-3 text-[11px] text-slate-500 font-medium">
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-                          <span className="block text-slate-400 uppercase text-[9px] mb-1">
-                            Species
-                          </span>
-                          <span className="text-slate-800 font-bold">
-                            {item.data.species}
-                          </span>
+                  return (
+                    <React.Fragment key={i}>
+                      {/* SPLIT EVENT DIVIDER */}
+                      {isFirstParentEvent && (
+                        <div className="relative pl-10 py-6">
+                          <div className="absolute left-[11px] top-0 bottom-0 w-0.5 border-l-2 border-slate-300 border-dashed"></div>
+                          <div className="bg-amber-100 border border-amber-200 text-amber-800 text-xs font-black uppercase tracking-widest p-3 rounded-xl flex items-center gap-3 relative z-10 w-fit shadow-sm">
+                            <span>✂️</span> Batch Split Event (Inherited History
+                            Below)
+                          </div>
                         </div>
-                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-                          <span className="block text-slate-400 uppercase text-[9px] mb-1">
-                            Quantity
-                          </span>
-                          <span className="text-slate-800 font-bold">
-                            {item.data.quantity} heads
-                          </span>
-                        </div>
-                        <div className="col-span-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                          <span className="block text-slate-400 uppercase text-[9px] mb-1">
-                            Location / Custody
-                          </span>
-                          <span className="text-slate-800">
-                            {item.data.location}
-                          </span>
-                        </div>
-                        <div className="col-span-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                          <span className="block text-slate-400 uppercase text-[9px] mb-1">
-                            {!item.data.severity ||
-                            item.data.severity === "Ongoing"
-                              ? "Initial Observation (Farmer)"
-                              : "Official Health Status (Vet)"}
-                          </span>
-                          <span className="text-slate-800">
-                            {!item.data.severity ||
-                            item.data.severity === "Ongoing" ? (
-                              <span className="italic text-slate-600">
-                                "{item.data.healthStatus}"
-                              </span>
-                            ) : item.data.severity === "safe" ? (
-                              <span className="font-bold text-emerald-600">
-                                ✅ Verified Healthy
-                              </span>
-                            ) : item.data.severity === "mild" ? (
-                              <span className="font-bold text-amber-600">
-                                ⚠️ Mild Illness
-                              </span>
-                            ) : (
-                              <span className="font-bold text-red-600">
-                                ⛔ Dangerous Disease
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
+                      )}
 
-                      {item.data.diagnosedDisease &&
-                        item.data.severity !== "safe" &&
-                        item.data.severity !== "Ongoing" && (
-                          <div className="mt-3 bg-red-50 border border-red-100 p-3 rounded-lg flex items-center gap-3">
-                            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                            <span className="text-xs font-black text-red-600">
-                              DIAGNOSIS: {item.data.diagnosedDisease}
+                      <div className="relative pl-10 pb-10 group">
+                        {/* Timeline Line */}
+                        {i !== sortedHistory.length - 1 &&
+                          !isFirstParentEvent && (
+                            <div className="absolute left-[11px] top-6 bottom-0 w-0.5 bg-slate-200 group-hover:bg-emerald-200 transition-colors"></div>
+                          )}
+                        {/* Connect line through the split divider */}
+                        {i !== sortedHistory.length - 1 &&
+                          isFirstParentEvent && (
+                            <div className="absolute left-[11px] top-6 bottom-0 w-0.5 bg-slate-200 group-hover:bg-emerald-200 transition-colors"></div>
+                          )}
+
+                        {/* Node Dot (Gray for Parent, Green for Child) */}
+                        <div
+                          className={`absolute left-0 top-1 w-6 h-6 rounded-full border-4 border-white shadow-md z-10 ${item.isInherited ? "bg-slate-400 shadow-slate-200" : "bg-emerald-500 shadow-emerald-200"}`}
+                        ></div>
+
+                        <div
+                          className={`bg-white border rounded-2xl p-5 transition-all hover:shadow-xl ${item.isInherited ? "border-slate-200 opacity-80" : "border-slate-200 hover:border-emerald-500/30 hover:shadow-slate-200/50"}`}
+                        >
+                          <div className="flex justify-between items-start mb-4">
+                            <span className="bg-slate-900 text-white text-[10px] px-2 py-1 rounded font-mono uppercase tracking-widest">
+                              TX: {item.txId.substring(0, 12)}...
+                            </span>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-1 rounded ${item.isInherited ? "text-slate-600 bg-slate-100" : "text-emerald-600 bg-emerald-50"}`}
+                            >
+                              {formatDate(item.data.timestamp)}
                             </span>
                           </div>
-                        )}
-                    </div>
-                  </div>
-                ))}
+
+                          <p
+                            className={`text-lg font-black mb-4 flex items-center gap-2 ${item.isInherited ? "text-slate-600" : "text-slate-800"}`}
+                          >
+                            {item.data.status || "State Update"}
+                            {item.isInherited && (
+                              <span className="text-[9px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest ml-2">
+                                Inherited
+                              </span>
+                            )}
+                          </p>
+
+                          <div className="grid grid-cols-2 gap-3 text-[11px] text-slate-500 font-medium">
+                            <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                              <span className="block text-slate-400 uppercase text-[9px] mb-1">
+                                Batch ID
+                              </span>
+                              <span className="text-slate-800 font-bold font-mono">
+                                {item.data.batchId}
+                              </span>
+                            </div>
+                            <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                              <span className="block text-slate-400 uppercase text-[9px] mb-1">
+                                Quantity
+                              </span>
+                              <span className="text-slate-800 font-bold">
+                                {item.data.quantity} heads
+                              </span>
+                            </div>
+                            <div className="col-span-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                              <span className="block text-slate-400 uppercase text-[9px] mb-1">
+                                Location / Custody
+                              </span>
+                              <span className="text-slate-800">
+                                {item.data.location}
+                              </span>
+                            </div>
+                            <div className="col-span-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                              <span className="block text-slate-400 uppercase text-[9px] mb-1">
+                                {!item.data.severity ||
+                                item.data.severity === "Ongoing"
+                                  ? "Initial Observation"
+                                  : "Official Health Status"}
+                              </span>
+                              <span className="text-slate-800">
+                                {!item.data.severity ||
+                                item.data.severity === "Ongoing" ? (
+                                  <span className="italic text-slate-600">
+                                    "{item.data.healthStatus}"
+                                  </span>
+                                ) : item.data.severity === "safe" ? (
+                                  <span className="font-bold text-emerald-600">
+                                    ✅ Verified Healthy
+                                  </span>
+                                ) : item.data.severity === "mild" ? (
+                                  <span className="font-bold text-amber-600">
+                                    ⚠️ Mild Illness
+                                  </span>
+                                ) : (
+                                  <span className="font-bold text-red-600">
+                                    ⛔ Dangerous Disease
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
               </div>
             </>
           )}

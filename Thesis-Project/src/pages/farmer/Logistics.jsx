@@ -19,6 +19,7 @@ export default function Logistics() {
     receiverAddress: "",
     purpose: "Sales",
     transportDate: "",
+    transferQuantity: "",
   });
 
   const currentUser = localStorage.getItem("username");
@@ -129,7 +130,9 @@ export default function Logistics() {
       alert("Error: " + err.message);
     }
   };
-
+  // Helper to get max quantity of selected batch
+  const selectedAnimalData = animals.find((a) => a.batchId === selectedBatch);
+  const maxQty = selectedAnimalData ? selectedAnimalData.quantity : 0;
   // --- SENDER SUBMITTING NEW REQUEST ---
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -149,6 +152,7 @@ export default function Logistics() {
           : null,
       purpose: formData.purpose,
       transportDate: formData.transportDate,
+      transferQuantity: parseInt(formData.transferQuantity),
     };
 
     try {
@@ -280,7 +284,28 @@ export default function Logistics() {
               </select>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
+                  Transfer Qty (Max: {maxQty})
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  max={maxQty}
+                  disabled={!selectedBatch}
+                  value={formData.transferQuantity}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      transferQuantity: e.target.value,
+                    })
+                  }
+                  placeholder={`1 - ${maxQty}`}
+                  className="w-full p-4 border-2 border-slate-50 rounded-xl outline-none focus:border-[var(--green)] font-bold text-slate-700 disabled:bg-slate-100 disabled:text-slate-400"
+                />
+              </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
                   Destination Type
