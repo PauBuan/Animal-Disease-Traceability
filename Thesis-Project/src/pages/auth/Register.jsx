@@ -145,7 +145,21 @@ export default function Register() {
 
           {formData.role === "Farmer" && (
             <div className="animate-fade-in-down">
-              <input type="text" name="farmName" placeholder="Farm Name" required className="w-full p-3 border border-gray-300 rounded-lg bg-green-50" onChange={handleChange} />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Farm Type</label>
+              <select
+                name="farmName"
+                required
+                className="w-full p-3 border border-gray-300 rounded-lg bg-green-50"
+                onChange={handleChange}
+                value={formData.farmName}
+              >
+                <option value="" disabled>Select farm type</option>
+                <option value="Piggeries">Piggeries</option>
+                <option value="Poultry farm">Poultry farm</option>
+                <option value="Beef cattle farm">Beef cattle farm</option>
+                <option value="Sheep farm">Sheep farm</option>
+                <option value="Goat farm">Goat farm</option>
+              </select>
               <p className="text-xs text-gray-500 mt-1 ml-1">* Required for Livestock Registration</p>
             </div>
           )}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 export default function MovementPermits() {
   const [requests, setRequests] = useState([]);
@@ -133,6 +133,27 @@ export default function MovementPermits() {
   const isLapsed = (dateString) => {
     return new Date(dateString) < new Date().setHours(0, 0, 0, 0);
   };
+
+  const formatDateTime = (isoString) => {
+    if (!isoString) return "N/A";
+    return new Date(isoString).toLocaleString();
+  };
+
+  // Chain of custody origin trace
+  const movementPath = useMemo(() => {
+    if (!auditTrail || auditTrail.length === 0) return [];
+    const chronological = [...auditTrail].sort(
+      (a, b) => new Date(a.data.timestamp) - new Date(b.data.timestamp),
+    );
+    const path = [];
+    chronological.forEach((item) => {
+      const loc = item.data.location;
+      if (loc && (path.length === 0 || path[path.length - 1] !== loc)) {
+        path.push(loc);
+      }
+    });
+    return path;
+  }, [auditTrail]);
 
   return (
     <div className="p-8 bg-slate-50 min-h-screen w-full relative">
@@ -367,39 +388,108 @@ export default function MovementPermits() {
 
                   {/* TAB 2: AUDIT TRAIL */}
                   {activeTab === "audit" && (
-                    <div className="space-y-3">
-                      {auditTrail.map((log, idx) => (
-                        <div
-                          key={idx}
-                          className="flex gap-4 p-3 rounded-lg border border-slate-100 hover:bg-slate-50"
-                        >
-                          <div className="text-xs text-slate-400 w-24 flex-shrink-0">
-                            {/* FIX: Use log.data.timestamp for reliable date parsing */}
-                            <div>{formatDate(log.timestamp.seconds * 1000)}</div>
+                    <div>
+                      {auditTrail.length === 0 ? (
+                        <p className="text-center text-slate-400 py-10 italic">
+                          No blockchain records found.
+                        </p>
+                      ) : (
+                        <>
+                          {/* Origin Trace */}
+                          {movementPath.length > 0 && (
+                            <div className="mb-6 p-5 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                              <h4 className="text-[10px] font-black uppercase text-slate-400 mb-3 tracking-widest">
+                                Chain of Custody (Origin Trace)
+                              </h4>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {movementPath.map((loc, idx) => (
+                                  <span key={idx} className="flex items-center gap-2">
+                                    <div className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-emerald-100">
+                                      {idx === 0 ? "📍 Origin: " : ""}{loc}
+                                    </div>
+                                    {idx < movementPath.length - 1 && (
+                                      <span className="text-slate-300 font-black">➔</span>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Timeline */}
+                          <div className="space-y-0 mt-2">
+                            {auditTrail.map((item, i) => (
+                              <div key={i} className="relative pl-10 pb-8 group">
+                                {/* Timeline line */}
+                                {i !== auditTrail.length - 1 && (
+                                  <div className="absolute left-[11px] top-6 bottom-0 w-0.5 bg-slate-200 group-hover:bg-emerald-200 transition-colors"></div>
+                                )}
+                                {/* Node dot */}
+                                <div className="absolute left-0 top-1 w-6 h-6 rounded-full border-4 border-white bg-emerald-500 shadow-md shadow-emerald-200 z-10"></div>
+
+                                <div className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-emerald-500/30 transition-all hover:shadow-xl hover:shadow-slate-200/50">
+                                  <div className="flex justify-between items-start mb-4">
+                                    <span className="bg-slate-900 text-white text-[10px] px-2 py-1 rounded font-mono uppercase tracking-widest">
+                                      TX: {item.txId.substring(0, 12)}...
+                                    </span>
+                                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+                                      {formatDateTime(item.data.timestamp)}
+                                    </span>
+                                  </div>
+
+                                  <p className="text-lg font-black text-slate-800 mb-4">
+                                    {item.data.status || "State Update"}
+                                  </p>
+
+                                  <div className="grid grid-cols-2 gap-3 text-[11px] text-slate-500 font-medium">
+                                    <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                      <span className="block text-slate-400 uppercase text-[9px] mb-1">Species</span>
+                                      <span className="text-slate-800 font-bold">{item.data.species}</span>
+                                    </div>
+                                    <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                      <span className="block text-slate-400 uppercase text-[9px] mb-1">Quantity</span>
+                                      <span className="text-slate-800 font-bold">{item.data.quantity} heads</span>
+                                    </div>
+                                    <div className="col-span-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                      <span className="block text-slate-400 uppercase text-[9px] mb-1">Location / Custody</span>
+                                      <span className="text-slate-800">{item.data.location}</span>
+                                    </div>
+                                    <div className="col-span-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                      <span className="block text-slate-400 uppercase text-[9px] mb-1">
+                                        {!item.data.severity || item.data.severity === "Ongoing"
+                                          ? "Initial Observation (Farmer)"
+                                          : "Official Health Status (Vet)"}
+                                      </span>
+                                      <span className="text-slate-800">
+                                        {!item.data.severity || item.data.severity === "Ongoing" ? (
+                                          <span className="italic text-slate-600">"{item.data.healthStatus}"</span>
+                                        ) : item.data.severity === "safe" ? (
+                                          <span className="font-bold text-emerald-600">✅ Verified Healthy</span>
+                                        ) : item.data.severity === "mild" ? (
+                                          <span className="font-bold text-amber-600">⚠️ Mild Illness</span>
+                                        ) : (
+                                          <span className="font-bold text-red-600">⛔ Dangerous Disease</span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {item.data.diagnosedDisease &&
+                                    item.data.severity !== "safe" &&
+                                    item.data.severity !== "Ongoing" && (
+                                      <div className="mt-3 bg-red-50 border border-red-100 p-3 rounded-lg flex items-center gap-3">
+                                        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                                        <span className="text-xs font-black text-red-600">
+                                          DIAGNOSIS: {item.data.diagnosedDisease}
+                                        </span>
+                                      </div>
+                                    )}
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          <div>
-                            <div className="font-bold text-slate-700 text-sm">
-                              Status:{" "}
-                              <span
-                                className={
-                                  log.data.status === "Verified by Vet"
-                                    ? "text-emerald-600"
-                                    : "text-slate-600"
-                                }
-                              >
-                                {log.data.status}
-                              </span>
-                            </div>
-                            <div className="text-xs text-slate-500">
-                              Owner: {log.data.username} | Loc:{" "}
-                              {log.data.location}
-                            </div>
-                            <div className="text-[10px] text-slate-300 font-mono mt-1">
-                              Tx: {log.txId.substring(0, 15)}...
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                        </>
+                      )}
                     </div>
                   )}
                 </>
