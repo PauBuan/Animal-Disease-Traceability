@@ -109,10 +109,6 @@ export default function FarmerProfile() {
             <p className="mt-2 text-sm font-medium text-slate-500">
               @{profile?.username || "loading..."}
             </p>
-            <div className="mt-3 inline-flex items-center gap-2 px-4 py-1.5 bg-slate-50 rounded-full text-xs font-semibold text-slate-600 border border-slate-200">
-              <span>📍</span>
-              <span>Brgy {profile?.barangay || "—"}</span>
-            </div>
           </div>
 
           <div className="space-y-6">

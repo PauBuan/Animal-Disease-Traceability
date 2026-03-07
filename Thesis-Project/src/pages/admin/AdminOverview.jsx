@@ -11,7 +11,8 @@ export default function AdminOverview() {
     critical: 0,
     mild: 0,
     healthy: 0,
-    vaccinationPercent: "0.0" 
+    vaccinationPercent: "0.0",
+    totalAnimals: 0
   });
   const [barangayMapStats, setBarangayMapStats] = useState({});
 
@@ -28,13 +29,10 @@ export default function AdminOverview() {
 
   const fetchAllData = async () => {
     try {
-      // Fetch all transactions (total animals)
       const txRes = await fetch("http://localhost:3001/api/transactions");
       if (!txRes.ok) throw new Error("Failed to fetch transactions");
       const txData = await txRes.json();
 
-      // Fetch all health records (for vaccination count)
-      // IMPORTANT: You must add this endpoint in healthrecords.js (see note below)
       const healthRes = await fetch("http://localhost:3001/api/health-records");
       if (!healthRes.ok) throw new Error("Failed to fetch health records");
       const healthData = await healthRes.json();
@@ -49,10 +47,10 @@ export default function AdminOverview() {
 
   const processData = (txList, healthList) => {
     const brgyGroup = {};
-    let gHealthy = 0, 
-        gMild = 0, 
-        gCritical = 0, 
-        gTotalAnimals = 0; // Initialize a filtered global total
+    let gHealthy = 0,
+        gMild = 0,
+        gCritical = 0,
+        gTotalAnimals = 0;
 
     VALID_BARANGAYS.forEach(name => {
       brgyGroup[name] = { total: 0, healthy: 0, sick: 0, mild: 0, critical: 0, unverified: 0 };
@@ -63,10 +61,16 @@ export default function AdminOverview() {
       const qty = Number(tx.quantity) || 0;
       const severity = (tx.severity || "").toLowerCase().trim();
 
-      // 1. FILTER: Ignore non-local/dead-end animals
-      if (loc.includes("slaughterhouse") || loc.includes("exported")) return;
+      if (
+        loc.includes("slaughterhouse") ||
+        loc.includes("exported") ||
+        loc.includes("deep burial") ||
+        loc.includes("incineration") ||
+        loc.includes("chemical rendering")
+      ) {
+        return; // These animals are no longer in the living population
+      }
 
-      // 2. ADD TO FILTERED TOTAL: Only animals that passed the filter above
       gTotalAnimals += qty;
 
       const match = VALID_BARANGAYS.find(b => loc.includes(b.toLowerCase()));
@@ -89,14 +93,10 @@ export default function AdminOverview() {
       }
     });
 
-    // 3. VACCINATION CALCULATION:
-    // This counts how many vaccinations were recorded
     const vaccinatedCount = healthList
       .filter(record => record.type === "Vaccination")
       .reduce((sum, record) => sum + (Number(record.quantity) || 1), 0);
 
-    // 4. PERCENTAGE CALCULATION:
-    // Uses the filtered gTotalAnimals instead of the raw txList
     const vaccinationPercent = gTotalAnimals > 0
       ? ((vaccinatedCount / gTotalAnimals) * 100).toFixed(1)
       : "0.0";
@@ -107,13 +107,13 @@ export default function AdminOverview() {
       mild: gMild,
       healthy: gHealthy,
       vaccinationPercent,
-      totalAnimals: gTotalAnimals  
+      totalAnimals: gTotalAnimals
     });
 
     setBarangayMapStats(brgyGroup);
   };
 
-  // Geographic color logic (unchanged)
+  // Everything below this line is 100% unchanged
   const getColor = (brgyStats) => {
     if (brgyStats.critical > 0) return '#ef4444';
     if (brgyStats.mild > 0) return '#f97316';
@@ -181,9 +181,7 @@ export default function AdminOverview() {
         Disease Monitoring Dashboard
       </h1>
 
-      {/* KPIs Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-        {/* Vaccination % - now real data */}
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-emerald-100 hover:shadow-xl transition-all">
           <h2 className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">Vaccination Rate</h2>
           <p className="text-4xl font-black text-emerald-700">
@@ -258,7 +256,7 @@ export default function AdminOverview() {
         </div>
       </div>
 
-      {/* Comprehensive Barangay Status Table */}
+      {/* Barangay Status Table */}
       <div className="bg-white p-8 rounded-2xl shadow-lg border border-slate-100">
         <h2 className="text-2xl font-black text-gray-800 mb-6 uppercase">Barangay Health Surveillance</h2>
         <div className="overflow-x-auto">

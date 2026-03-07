@@ -469,30 +469,6 @@ export default function LandingPage() {
 
         </div>
 
-        {/* PREDICTION CARD */}
-        <div className="mt-16 sm:mt-20 flex justify-center px-4 sm:px-0">
-          <div className="bg-gradient-to-r from-purple-100 via-indigo-100 to-blue-100 p-8 sm:p-10 rounded-3xl border-2 border-indigo-300 shadow-2xl text-center max-w-3xl w-full transform hover:scale-105 transition-all duration-500">
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
-              <span className="text-4xl sm:text-5xl animate-pulse">🔮✨</span>
-              <h3 className="text-3xl sm:text-4xl font-extrabold text-indigo-800 tracking-tight">
-                Livestock Disease Prediction
-              </h3>
-            </div>
-            <p className="text-gray-800 text-base sm:text-lg leading-relaxed mb-6 sm:mb-8 max-w-2xl mx-auto">
-              Leverage advanced AI models trained on historical outbreak data, seasonal patterns, 
-              climate factors, and real-time health reports to forecast potential disease risks 
-              across Santa Rosa barangays — up to 30 days in advance. Stay one step ahead of ASF, 
-              Avian Influenza, FMD, and other threats.
-            </p>
-            <button 
-              onClick={() => alert("Coming Soon!\n\nLivestock Disease Prediction feature is under development.\nStay tuned for powerful AI-powered outbreak forecasts!")} 
-              className="px-8 sm:px-12 py-4 sm:py-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black text-lg sm:text-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-xl transform hover:scale-105 w-full sm:w-auto"
-            >
-              Check Predictions Now →
-            </button>
-          </div>
-        </div>
-
         {/* ALERT HISTORY MODAL – already quite responsive, minor padding tweaks */}
         {isHistoryModalOpen && (
           <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 sm:p-6">

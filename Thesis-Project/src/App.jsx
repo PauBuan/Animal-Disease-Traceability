@@ -33,6 +33,7 @@ import TransactionLogs from "./pages/admin/TransactionLogs";
 import AlertSystem from "./pages/admin/AlertSystem";
 import NetworkVisual from "./pages/admin/NetworkVisual";
 import ExitPermits from "./pages/admin/ExitPermits";
+import AdminProfile from "./pages/admin/AdminProfile";
 
 // --- Vet Page Imports ---
 
@@ -41,6 +42,7 @@ import VetOverview from "./pages/vet/VetOverview";
 import VetTransactionLogs from "./pages/vet/VetTransactionLogs";
 import HealthRecord from "./pages/vet/HealthRecord";
 import MovementPermits from "./pages/vet/MovementPermits";
+import VetProfile from "./pages/vet/VetProfile";
 
 // --- Farmer Page Imports ---
 import FarmerLayout from "./components/layout/FarmerLayout";
@@ -142,6 +144,7 @@ export default function App() {
         {/* --- VETERINARIAN ROUTES (R2) --- */}
         <Route path="/vet" element={<VetLayout />}>
           <Route path="dashboard" element={<VetOverview />} />
+          <Route path="profile" element={<VetProfile />} />
 
           {/* FIXED: Removed the <div> wrapping the route */}
           <Route path="health-records" element={<HealthRecord />} />
@@ -169,6 +172,7 @@ export default function App() {
           <Route path="alert" element={<AlertSystem />} />
           <Route path="network" element={<NetworkVisual />} />
           <Route path="exit-permits" element={<ExitPermits />} />
+          <Route path="profile" element={<AdminProfile />} />
         </Route>
       </Routes>
     </Router>

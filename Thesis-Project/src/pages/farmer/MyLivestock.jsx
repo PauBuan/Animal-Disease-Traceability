@@ -26,9 +26,10 @@ export default function PublicLedger() {
   // Search State
   const [searchQuery, setSearchQuery] = useState("");
 
-  // --- NEW: Risk Assessment State ---
+  // --- RISK ASSESSMENT MODAL STATES ---
   const [farmRisk, setFarmRisk] = useState(null);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [showRiskModal, setShowRiskModal] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -49,9 +50,7 @@ export default function PublicLedger() {
         setUsername(loggedInUser);
         setMspId(userMsp);
 
-        const res = await fetch(
-          `http://localhost:3001/api/transactions/${loggedInUser}`,
-        );
+        const res = await fetch(`http://localhost:3001/api/transactions/${loggedInUser}`);
         const data = await res.json();
         setTransactions(data || []);
       } catch (err) {
@@ -82,13 +81,7 @@ export default function PublicLedger() {
   const handleCalculateRisk = async () => {
     setIsCalculating(true);
     try {
-      // 1. Database/State Tally: Count Total Population
-      const totalPop = transactions.reduce(
-        (acc, tx) => acc + Number(tx.quantity || 0),
-        0,
-      );
-
-      // 2. Blockchain Data Tally: Severity Counts
+      const totalPop = transactions.reduce((acc, tx) => acc + Number(tx.quantity || 0), 0);
       let safeCount = 0;
       let mildCount = 0;
       let dangerousCount = 0;
@@ -106,11 +99,7 @@ export default function PublicLedger() {
         return;
       }
 
-      // 3. Medical Log Tally: Count total logs from health-record entries
-      const lookupIds = transactions
-        .map((tx) => tx.batchId || tx._id)
-        .filter(Boolean);
-
+      const lookupIds = transactions.map((tx) => tx.batchId || tx._id).filter(Boolean);
       const missingIds = lookupIds.filter((id) => healthLogCounts[id] === undefined);
       let fetchedCounts = {};
 
@@ -119,50 +108,49 @@ export default function PublicLedger() {
           missingIds.map(async (id) => {
             try {
               const res = await fetch(`http://localhost:3001/api/health-records/${id}`);
-              if (!res.ok) throw new Error("Health record count fetch failed");
               const data = await res.json();
               return [id, Array.isArray(data) ? data.length : 0];
             } catch {
               return [id, 0];
             }
-          }),
+          })
         );
-
         fetchedCounts = Object.fromEntries(fetchedEntries);
         setHealthLogCounts((prev) => ({ ...prev, ...fetchedCounts }));
       }
 
       const mergedCounts = { ...healthLogCounts, ...fetchedCounts };
-      const totalMedicalLogs = lookupIds.reduce(
-        (sum, id) => sum + Number(mergedCounts[id] || 0),
-        0,
-      );
+      const totalMedicalLogs = lookupIds.reduce((sum, id) => sum + Number(mergedCounts[id] || 0), 0);
 
-      // 4. Feature Engineering (Ratios)
       const sR = safeCount / totalDiagnosed;
       const mR = mildCount / totalDiagnosed;
       const dR = dangerousCount / totalDiagnosed;
       const pF = Math.min(totalPop / 500, 2);
       const logsPerDiagnosed = totalMedicalLogs / totalDiagnosed;
       const lF = Math.min(logsPerDiagnosed / 3, 1.5);
-
-      // 5. Logistic Regression Simulation
-      // Weights: Dangerous heavily increases z, Safe decreases it, frequent logs add signal.
       const z = (dR * 5.0) + (mR * 2.0) + (sR * -3.5) + (pF * 0.8) - (lF * 0.9) - 0.5;
 
       const probability = 1 / (1 + Math.exp(-z));
       const score = Math.round(probability * 100);
 
-      // 6. Determine Level
+      // --- START NEW DESCRIPTIVE LOGIC ---
       let level = "Low Risk";
       let color = "text-emerald-500";
+      let description = "Your farm is currently in great shape. No immediate threats detected.";
+      let advice = "Continue your regular monitoring and sanitation protocols.";
+
       if (score >= 70) {
-        level = "Critical";
+        level = "Critical Risk";
         color = "text-red-600";
+        description = "High number of dangerous health reports detected. This could lead to a potential outbreak.";
+        advice = "Isolate affected animals immediately and contact your local veterinarian.";
       } else if (score >= 35) {
-        level = "Moderate";
+        level = "Moderate Risk";
         color = "text-amber-600";
+        description = "Some batches are showing mild symptoms or irregular health patterns.";
+        advice = "Increase check-ups and ensure all medical logs are being updated daily.";
       }
+      // --- END NEW DESCRIPTIVE LOGIC ---
 
       await new Promise((resolve) => setTimeout(resolve, 800));
       setFarmRisk({
@@ -174,7 +162,10 @@ export default function PublicLedger() {
         mildCount,
         dangerousCount,
         totalMedicalLogs,
+        description, // Added this
+        advice,      // Added this
       });
+      setShowRiskModal(true);
     } finally {
       setIsCalculating(false);
     }
@@ -184,14 +175,10 @@ export default function PublicLedger() {
     setHistoryLoading(true);
     setShowHistoryModal(true);
     try {
-      const res = await fetch(
-        `http://localhost:3001/api/transactions/history/${lookupId}?username=${username}&mspId=${mspId}`,
-      );
-      if (!res.ok) throw new Error("Blockchain data unreachable");
+      const res = await fetch(`http://localhost:3001/api/transactions/history/${lookupId}?username=${username}&mspId=${mspId}`);
       const data = await res.json();
       setHistory(data || []);
     } catch (err) {
-      console.error("Blockchain Error:", err.message);
       setHistory([]);
     } finally {
       setHistoryLoading(false);
@@ -205,16 +192,11 @@ export default function PublicLedger() {
     setShowHealthModal(true);
     try {
       const res = await fetch(`http://localhost:3001/api/health-records/${lookupId}`);
-      if (!res.ok) throw new Error("Failed to fetch health records");
       const data = await res.json();
       setHealthLogs(data || []);
-      setHealthLogCounts((prev) => ({
-        ...prev,
-        [lookupId]: Array.isArray(data) ? data.length : 0,
-      }));
+      setHealthLogCounts((prev) => ({ ...prev, [lookupId]: Array.isArray(data) ? data.length : 0 }));
     } catch {
       setHealthLogs([]);
-      setHealthLogCounts((prev) => ({ ...prev, [lookupId]: 0 }));
     } finally {
       setHealthLoading(false);
     }
@@ -243,7 +225,6 @@ export default function PublicLedger() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newTx),
       });
-      if (!response.ok) throw new Error("Failed to save transaction");
       const savedTx = await response.json();
       setTransactions((prev) => [savedTx, ...prev]);
       alert("Record added successfully!");
@@ -259,110 +240,118 @@ export default function PublicLedger() {
   });
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-12 bg-slate-50">
-      <header className="max-w-7xl mx-auto mb-12 text-center">
-        <h1 className="text-4xl font-black text-emerald-900 tracking-tight">Animal Health Ledger</h1>
-        <p className="mt-3 text-lg text-emerald-600 font-medium">Secure Traceability Protocol</p>
+    <div className="min-h-screen py-6 px-3 sm:px-6 lg:px-10 bg-transparent">
+      <header className="max-w-7xl mx-auto mb-8 text-left">
+        <h1 className="text-3xl sm:text-4xl font-black text-emerald-900 tracking-tighter">Animal Health Ledger</h1>
+        <p className="text-sm font-bold text-emerald-600 uppercase tracking-widest mt-1 opacity-80">Secure Traceability Protocol</p>
       </header>
 
-      <div className="max-w-[1400px] mx-auto grid gap-8 lg:grid-cols-2">
-        {/* Form Section */}
-        <section className="bg-white rounded-3xl shadow-sm border border-slate-200 border-t-4 border-t-emerald-500 p-8 h-fit">
-          <h2 className="text-2xl font-bold text-slate-800 mb-6">Register Asset</h2>
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
-              <input name="fullName" value={formData.fullName} readOnly className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 font-semibold outline-none" />
-              <input name="contactNumber" value={formData.contactNumber} readOnly className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 font-semibold outline-none" />
+      {/* Grid container: Fixed height on large screens (lg), Auto height on mobile (default) */}
+      <div className="max-w-[1600px] mx-auto grid gap-6 lg:grid-cols-12 items-start lg:h-[calc(100vh-180px)]">
+        
+        {/* LEFT: FORM SECTION */}
+        <section className="lg:col-span-4 bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/40 p-6 sm:p-8 lg:overflow-y-auto lg:max-h-full custom-scrollbar">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="bg-emerald-600 text-white p-2 rounded-xl text-xl">📝</div>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Register Animal</h2>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Farmer Name</label>
+              <input name="fullName" value={formData.fullName} readOnly className="w-full px-5 py-4 bg-slate-100/50 border-none rounded-2xl text-slate-500 font-bold outline-none text-sm" />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <select name="species" value={formData.species} onChange={handleChange} required className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white text-slate-700">
-                <option value="" disabled>Select Species</option>
-                {["Hog", "Cow", "Chicken", "Carabao", "Duck", "Goat"].map(opt => <option key={opt} value={opt}>{opt}</option>)}
-              </select>
-              <input type="number" name="quantity" value={formData.quantity} onChange={handleChange} placeholder="Quantity" required className="w-full px-4 py-3 border border-slate-200 rounded-xl" />
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Contact Number</label>
+              <input name="contactNumber" value={formData.contactNumber} readOnly className="w-full px-5 py-4 bg-slate-100/50 border-none rounded-2xl text-slate-500 font-bold outline-none text-sm" />
             </div>
-            <textarea name="healthStatus" value={formData.healthStatus} onChange={handleChange} placeholder="Initial Health Observation..." rows={3} required className="w-full px-4 py-3 border border-slate-200 rounded-xl resize-none" />
-            <input name="location" value={formData.location} readOnly className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 font-semibold" />
-            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-[0.98]">Save to Blockchain</button>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700 ml-2">Animal Type</label>
+                <select name="species" value={formData.species} onChange={handleChange} required className="w-full px-5 py-4 bg-white border-2 border-slate-100 rounded-2xl font-bold text-slate-700 focus:border-emerald-500 transition-all text-sm outline-none">
+                  <option value="" disabled>Select</option>
+                  {["Hog", "Cow", "Chicken", "Carabao", "Duck", "Goat"].map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700 ml-2">How many?</label>
+                <input type="number" name="quantity" value={formData.quantity} onChange={handleChange} placeholder="0" required className="w-full px-5 py-4 bg-white border-2 border-slate-100 rounded-2xl font-bold focus:border-emerald-500 transition-all text-sm outline-none" />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700 ml-2">How do they look?</label>
+              <textarea name="healthStatus" value={formData.healthStatus} onChange={handleChange} placeholder="Ex: All are eating well..." rows={3} required className="w-full px-5 py-4 bg-white border-2 border-slate-100 rounded-2xl font-bold focus:border-emerald-500 transition-all text-sm resize-none outline-none" />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Location</label>
+              <input name="location" value={formData.location} readOnly className="w-full px-5 py-4 bg-slate-100/50 border-none rounded-2xl text-slate-500 font-bold text-sm" />
+            </div>
+
+            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-emerald-200 transition-all active:scale-[0.95] text-base uppercase tracking-widest mt-2">
+              Send to Vet!
+            </button>
           </form>
         </section>
 
-        {/* Table Section */}
-        <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 flex flex-col h-[750px]">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-            <h2 className="text-2xl font-bold text-slate-800">Record History</h2>
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+        {/* RIGHT: DASHBOARD - Fixed only on Large Screens */}
+        <section className="lg:col-span-8 flex flex-col lg:h-full bg-white/60 backdrop-blur-md rounded-[2.5rem] shadow-xl border border-white/40 overflow-hidden">
+          <div className="p-6 sm:p-8 border-b border-white/40 flex flex-col md:flex-row justify-between items-center gap-4 bg-white/30">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-600 text-white p-2 rounded-xl text-xl">📜</div>
+              <h2 className="text-2xl font-black text-slate-800 tracking-tight">Record History</h2>
+            </div>
+            
+            <div className="flex items-center gap-3 w-full md:w-auto">
               <button 
                 onClick={handleCalculateRisk}
                 disabled={isCalculating}
-                className="whitespace-nowrap bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition disabled:opacity-50"
+                className="flex-1 md:flex-none whitespace-nowrap bg-indigo-600 text-white px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 shadow-lg disabled:opacity-50 transition-all"
               >
                 {isCalculating ? "Analyzing..." : "Analyze Risk"}
               </button>
-              <div className="relative flex-1 sm:w-64">
-                <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
-                <span className="absolute left-3 top-2.5">🔍</span>
+              <div className="relative flex-1 md:w-48">
+                <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-5 pr-5 py-4 bg-white/80 border-2 border-slate-100 rounded-2xl text-sm font-bold outline-none focus:border-emerald-500 transition-all" />
               </div>
             </div>
           </div>
 
-          {/* --- RISK ASSESSMENT DASHBOARD --- */}
-          {farmRisk && (
-            <div className="mb-6 p-6 rounded-[2rem] bg-slate-900 text-white shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-              <div className="relative z-10 flex justify-between items-center">
-                <div>
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Farm Health Security Index</h3>
-                  <div className="flex items-baseline gap-2">
-                    <span className={`text-4xl font-black ${farmRisk.color}`}>{farmRisk.score}%</span>
-                    <span className="text-sm font-bold text-slate-300">/ 100 Risk Score</span>
-                  </div>
-                  <div className="flex gap-3 mt-4">
-                    <div className="bg-white/5 px-3 py-1 rounded-full text-[10px] font-bold">📍 Pop: {farmRisk.totalPop}</div>
-                    <div className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-[10px] font-bold">✅ {farmRisk.safeCount} Safe</div>
-                    <div className="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-[10px] font-bold">⛔ {farmRisk.dangerousCount} Alert</div>
-                    <div className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-[10px] font-bold">🩺 {farmRisk.totalMedicalLogs} Logs</div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className={`text-xl font-black uppercase italic ${farmRisk.color}`}>{farmRisk.level}</div>
-                  <p className="text-[9px] text-slate-400 mt-1 max-w-[120px] leading-tight">ML-Powered Probability based on Node Transactions</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="overflow-auto flex-1 pr-2 custom-scrollbar">
-            <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 bg-white z-10 border-b border-slate-100">
-                <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  <th className="py-4 px-4">Audit</th>
-                  <th className="py-4 px-4">Medical</th>
-                  <th className="py-4 px-4">Batch / Species</th>
-                  <th className="py-4 px-4 text-center">Qty</th>
-                  <th className="py-4 px-4 text-right">Date</th>
+          {/* This div only scrolls on Desktop (lg:overflow-y-auto) */}
+          <div className="flex-1 lg:overflow-y-auto p-6 sm:p-8 custom-scrollbar">
+            <table className="w-full border-separate border-spacing-y-3">
+              <thead className="hidden sm:table-header-group">
+                <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <th className="pb-2 px-4 text-left">Tools</th>
+                  <th className="pb-2 px-4 text-left">Animal</th>
+                  <th className="pb-2 px-4 text-center">Qty</th>
+                  <th className="pb-2 px-4 text-right">Date</th>
                 </tr>
               </thead>
-              <tbody className="text-sm">
+              <tbody>
                 {filteredTransactions.map((tx) => (
-                  <tr key={tx._id} className={`border-b border-slate-50 hover:bg-slate-50/60 transition ${tx.severity === 'dangerous' ? 'bg-red-50/30' : ''}`}>
-                    <td className="py-4 px-4">
-                      <button onClick={() => viewBlockchainHistory(tx.batchId || tx._id)} className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-emerald-100 transition">Trail</button>
-                    </td>
-                    <td className="py-4 px-4">
-                      <button onClick={() => viewHealthRecords(tx)} className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-blue-100 transition">Log</button>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="font-bold text-slate-700 flex items-center gap-2">
-                        {tx.species}
-                        {tx.severity === "dangerous" && <span title="Dangerous">⛔</span>}
-                        {tx.severity === "mild" && <span title="Mild">⚠️</span>}
-                        {tx.severity === "safe" && <span title="Safe">✅</span>}
+                  <tr key={tx._id} className="group">
+                    <td className="py-3 px-4 bg-white rounded-l-3xl shadow-sm group-hover:shadow-md transition-all">
+                      <div className="flex gap-2">
+                        <button onClick={() => viewBlockchainHistory(tx.batchId || tx._id)} className="bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-emerald-600 hover:text-white transition-all">Trail</button>
+                        <button onClick={() => viewHealthRecords(tx)} className="bg-blue-50 text-blue-600 px-3 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-blue-600 hover:text-white transition-all">Log</button>
                       </div>
-                      <div className="text-[10px] text-slate-400 font-mono">{tx.batchId || "Legacy"}</div>
                     </td>
-                    <td className="py-4 px-4 text-center font-bold text-slate-600">{tx.quantity}</td>
-                    <td className="py-4 px-4 text-right text-slate-400 text-xs">{new Date(tx.timestamp).toLocaleDateString()}</td>
+                    <td className="py-3 px-4 bg-white shadow-sm group-hover:shadow-md transition-all">
+                      <div className="font-black text-slate-800 flex items-center gap-2 text-base">
+                        {tx.species}
+                        <span>{tx.severity === "dangerous" ? "⛔" : tx.severity === "mild" ? "⚠️" : tx.severity === "safe" ? "✅" : "⏳"}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono tracking-tighter uppercase">{tx.batchId || "Legacy ID"}</div>
+                    </td>
+                    <td className="py-3 px-4 bg-white shadow-sm text-center group-hover:shadow-md transition-all font-black text-slate-700">
+                      {tx.quantity}
+                    </td>
+                    <td className="py-3 px-4 bg-white rounded-r-3xl shadow-sm text-right group-hover:shadow-md transition-all">
+                      <div className="text-xs font-bold text-slate-500">{new Date(tx.timestamp).toLocaleDateString()}</div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -371,6 +360,58 @@ export default function PublicLedger() {
         </section>
       </div>
 
+      {/* --- RISK ANALYSIS MODAL --- */}
+      {showRiskModal && farmRisk && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md">
+          <div className="bg-slate-900 w-full max-w-2xl rounded-[3rem] p-8 shadow-2xl relative overflow-hidden border border-white/10">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+            <div className="relative z-10">
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500 mb-2">Farm Health Security Index</h3>
+                  <div className="flex items-baseline gap-3">
+                    <span className={`text-7xl font-black tracking-tighter ${farmRisk.color}`}>{farmRisk.score}%</span>
+                    <span className="text-xl font-bold text-slate-400 italic tracking-tight">{farmRisk.level}</span>
+                  </div>
+                </div>
+                <button onClick={() => setShowRiskModal(false)} className="bg-white/5 hover:bg-white/10 text-white w-12 h-12 flex items-center justify-center rounded-2xl transition-all font-bold text-xl">✕</button>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem]">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Population</p>
+                  <p className="text-3xl font-black text-white">{farmRisk.totalPop}</p>
+                </div>
+                <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem]">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Medical Logs</p>
+                  <p className="text-3xl font-black text-white">{farmRisk.totalMedicalLogs}</p>
+                </div>
+              </div>
+
+              {/* FARMER FRIENDLY DESCRIPTIVE TEXT */}
+              <div className="space-y-4 mb-8">
+                <div className="bg-white/5 border-l-4 border-emerald-500 p-4 rounded-r-2xl">
+                   <h4 className="text-white font-black text-sm uppercase mb-1">Current Status</h4>
+                   <p className="text-slate-300 text-sm leading-relaxed">{farmRisk.description}</p>
+                </div>
+                <div className={`bg-white/5 border-l-4 ${farmRisk.score >= 35 ? 'border-amber-500' : 'border-blue-500'} p-4 rounded-r-2xl`}>
+                   <h4 className="text-white font-black text-sm uppercase mb-1">Recommended Action</h4>
+                   <p className="text-slate-300 text-sm leading-relaxed">{farmRisk.advice}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-3 mb-10">
+                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-6 py-4 rounded-2xl text-sm font-black">✅ {farmRisk.safeCount} Safe</div>
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-6 py-4 rounded-2xl text-sm font-black">⛔ {farmRisk.dangerousCount} Alert</div>
+              </div>
+
+              <button onClick={() => setShowRiskModal(false)} className="w-full bg-white/10 hover:bg-white/20 text-white font-black py-5 rounded-2xl uppercase tracking-widest transition-all">Close Analysis</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
       <MedicalLogModal isOpen={showHealthModal} onClose={() => setShowHealthModal(false)} healthLoading={healthLoading} healthLogs={healthLogs} selectedAnimal={selectedAnimalForHealth} />
       <AuditTrailModal isOpen={showHistoryModal} onClose={() => setShowHistoryModal(false)} historyLoading={historyLoading} history={history} selectedAnimal={transactions.find((t) => (t.batchId || t._id) === history[0]?.data?.batchId) || {}} />
     </div>
