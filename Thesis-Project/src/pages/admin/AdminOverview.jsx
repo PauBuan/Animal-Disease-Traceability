@@ -2,8 +2,6 @@ import React, { useEffect, useState } from "react";
 import { MapContainer, TileLayer, GeoJSON, ZoomControl } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-
-// Updated import path based on your file tree
 import santaRosaData from "../../assets/data/santa_rosa.json";
 
 export default function AdminOverview() {
@@ -12,11 +10,12 @@ export default function AdminOverview() {
     totalDisease: 0,
     critical: 0,
     mild: 0,
-    healthy: 0
+    healthy: 0,
+    vaccinationPercent: "0.0" 
   });
   const [barangayMapStats, setBarangayMapStats] = useState({});
-  const santaRosaCenter = [14.311, 121.11];
 
+  const santaRosaCenter = [14.311, 121.11];
   const VALID_BARANGAYS = [
     "Aplaya", "Balibago", "Caingin", "Dila", "Dita", "Don Jose", "Ibaba",
     "Kanluran", "Labas", "Macabling", "Malitlit", "Malusak", "Market Area",
@@ -24,24 +23,36 @@ export default function AdminOverview() {
   ];
 
   useEffect(() => {
-    fetchData();
+    fetchAllData();
   }, []);
 
-  const fetchData = async () => {
+  const fetchAllData = async () => {
     try {
-      const res = await fetch("http://localhost:3001/api/transactions");
-      const data = await res.json();
-      processData(data);
+      // Fetch all transactions (total animals)
+      const txRes = await fetch("http://localhost:3001/api/transactions");
+      if (!txRes.ok) throw new Error("Failed to fetch transactions");
+      const txData = await txRes.json();
+
+      // Fetch all health records (for vaccination count)
+      // IMPORTANT: You must add this endpoint in healthrecords.js (see note below)
+      const healthRes = await fetch("http://localhost:3001/api/health-records");
+      if (!healthRes.ok) throw new Error("Failed to fetch health records");
+      const healthData = await healthRes.json();
+
+      processData(txData, healthData);
     } catch (err) {
-      console.error("Fetch failed:", err);
+      console.error("Dashboard data fetch failed:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const processData = (txList) => {
+  const processData = (txList, healthList) => {
     const brgyGroup = {};
-    let gHealthy = 0, gMild = 0, gCritical = 0;
+    let gHealthy = 0, 
+        gMild = 0, 
+        gCritical = 0, 
+        gTotalAnimals = 0; // Initialize a filtered global total
 
     VALID_BARANGAYS.forEach(name => {
       brgyGroup[name] = { total: 0, healthy: 0, sick: 0, mild: 0, critical: 0, unverified: 0 };
@@ -52,7 +63,11 @@ export default function AdminOverview() {
       const qty = Number(tx.quantity) || 0;
       const severity = (tx.severity || "").toLowerCase().trim();
 
+      // 1. FILTER: Ignore non-local/dead-end animals
       if (loc.includes("slaughterhouse") || loc.includes("exported")) return;
+
+      // 2. ADD TO FILTERED TOTAL: Only animals that passed the filter above
+      gTotalAnimals += qty;
 
       const match = VALID_BARANGAYS.find(b => loc.includes(b.toLowerCase()));
       if (match) {
@@ -61,7 +76,6 @@ export default function AdminOverview() {
           gHealthy += qty;
           brgyGroup[match].healthy += qty;
         } else if (severity === "dangerous" || severity === "critical" || severity === "sick") {
-          // If severity is critical/dangerous, mark as critical
           gCritical += qty;
           brgyGroup[match].critical += qty;
           brgyGroup[match].sick += qty;
@@ -75,20 +89,35 @@ export default function AdminOverview() {
       }
     });
 
+    // 3. VACCINATION CALCULATION:
+    // This counts how many vaccinations were recorded
+    const vaccinatedCount = healthList
+      .filter(record => record.type === "Vaccination")
+      .reduce((sum, record) => sum + (Number(record.quantity) || 1), 0);
+
+    // 4. PERCENTAGE CALCULATION:
+    // Uses the filtered gTotalAnimals instead of the raw txList
+    const vaccinationPercent = gTotalAnimals > 0
+      ? ((vaccinatedCount / gTotalAnimals) * 100).toFixed(1)
+      : "0.0";
+
     setStats({
       totalDisease: gMild + gCritical,
       critical: gCritical,
       mild: gMild,
-      healthy: gHealthy
+      healthy: gHealthy,
+      vaccinationPercent,
+      totalAnimals: gTotalAnimals  
     });
+
     setBarangayMapStats(brgyGroup);
   };
 
-  // --- UPDATED GEOGRAPHIC COLOR LOGIC ---
+  // Geographic color logic (unchanged)
   const getColor = (brgyStats) => {
-    if (brgyStats.critical > 0) return '#ef4444'; // Red if any critical cases exist
-    if (brgyStats.mild > 0) return '#f97316';     // Orange if only mild cases exist
-    return '#10b981';                             // Green if 0 sick
+    if (brgyStats.critical > 0) return '#ef4444';
+    if (brgyStats.mild > 0) return '#f97316';
+    return '#10b981';
   };
 
   const mapStyle = (feature) => {
@@ -106,7 +135,6 @@ export default function AdminOverview() {
   const onEachBarangay = (feature, layer) => {
     const brgyName = feature.properties.NAME_3;
     const stats = barangayMapStats[brgyName] || { healthy: 0, mild: 0, critical: 0, unverified: 0, total: 0 };
-
     layer.on({
       mouseover: (e) => {
         const l = e.target;
@@ -117,7 +145,6 @@ export default function AdminOverview() {
         l.setStyle({ weight: 1.5, color: 'white', fillOpacity: 0.7 });
       }
     });
-
     layer.bindTooltip(`
       <div style="font-family: sans-serif; padding: 8px; min-width: 160px;">
         <strong style="text-transform: uppercase; border-bottom: 1px solid #eee; display: block; margin-bottom: 5px; font-size: 13px;">
@@ -146,7 +173,7 @@ export default function AdminOverview() {
     `, { sticky: true, opacity: 0.95 });
   };
 
-  if (loading) return <div className="p-10 text-center font-bold">Syncing Disease Data...</div>;
+  if (loading) return <div className="p-10 text-center font-bold">Syncing Dashboard Data...</div>;
 
   return (
     <div className="container mx-auto p-4">
@@ -156,10 +183,15 @@ export default function AdminOverview() {
 
       {/* KPIs Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-        <div className="bg-white p-6 rounded-2xl shadow-lg border border-indigo-100">
-          <h2 className="text-xs font-black text-indigo-500 uppercase tracking-widest mb-2">Vaccination</h2>
-          <p className="text-4xl font-black text-gray-900">0%</p>
-          <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">No Data Available</p>
+        {/* Vaccination % - now real data */}
+        <div className="bg-white p-6 rounded-2xl shadow-lg border border-emerald-100 hover:shadow-xl transition-all">
+          <h2 className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">Vaccination Rate</h2>
+          <p className="text-4xl font-black text-emerald-700">
+            {stats.vaccinationPercent}%
+          </p>
+          <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">
+            out of {stats.totalAnimals?.toLocaleString() || "0"}
+          </p>
         </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-red-100">
@@ -167,19 +199,16 @@ export default function AdminOverview() {
           <p className="text-4xl font-black text-gray-900">{stats.totalDisease.toLocaleString()}</p>
           <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Confirmed Cases</p>
         </div>
-
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-orange-100">
           <h2 className="text-xs font-black text-orange-500 uppercase tracking-widest mb-2">Critical</h2>
           <p className="text-4xl font-black text-gray-900">{stats.critical.toLocaleString()}</p>
           <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">High-Risk Alerts</p>
         </div>
-
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-blue-100">
           <h2 className="text-xs font-black text-blue-500 uppercase tracking-widest mb-2">Mild Cases</h2>
           <p className="text-4xl font-black text-gray-900">{stats.mild.toLocaleString()}</p>
           <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Stable Monitoring</p>
         </div>
-
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-emerald-100">
           <h2 className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-2">Healthy</h2>
           <p className="text-4xl font-black text-gray-900">{stats.healthy.toLocaleString()}</p>
@@ -198,15 +227,12 @@ export default function AdminOverview() {
             style={{ height: "500px", width: "100%", zIndex: 10 }}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            
-            <GeoJSON 
-              data={santaRosaData} 
-              style={mapStyle} 
-              onEachFeature={onEachBarangay} 
+            <GeoJSON
+              data={santaRosaData}
+              style={mapStyle}
+              onEachFeature={onEachBarangay}
             />
-
             <ZoomControl position="bottomright" />
-
             <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white z-[1000] pointer-events-none">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Disease Legend</p>
               <div className="space-y-1.5">
@@ -221,6 +247,10 @@ export default function AdminOverview() {
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></div>
                   <span className="text-[10px] font-black text-slate-700">Critical (ASF/Flu)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#d97706]"></div>
+                  <span className="text-[10px] font-black text-slate-700">Unverified (Pending)</span>
                 </div>
               </div>
             </div>

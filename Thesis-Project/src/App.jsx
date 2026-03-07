@@ -46,6 +46,7 @@ import MovementPermits from "./pages/vet/MovementPermits";
 import FarmerLayout from "./components/layout/FarmerLayout";
 import MyLivestock from "./pages/farmer/MyLivestock"; // Formerly PublicLedger
 import Logistics from "./pages/farmer/Logistics";
+import FarmerProfile from "./pages/farmer/FarmerProfile";
 
 // ---HEADER & FOOTER---
 function PublicLayout() {
@@ -132,6 +133,7 @@ export default function App() {
         <Route path="/farmer" element={<FarmerLayout />}>
           <Route path="livestock" element={<MyLivestock />} />
           <Route path="logistics" element={<Logistics />} />
+          <Route path="profile" element={<FarmerProfile />} />
         </Route>
 
         {/* 2. Admin Login Route */}

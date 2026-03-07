@@ -15,10 +15,10 @@ export default function BarangayHealthTable() {
   const [grandTotals, setGrandTotals] = useState({ healthy: 0, sick: 0, unverified: 0, total: 0 });
 
   // --- DATE FILTER STATES ---
-  const [rawTransactions, setRawTransactions] = useState([]); 
+  const [rawTransactions, setRawTransactions] = useState([]);
   const currentYear = new Date().getFullYear();
-  const [filterMode, setFilterMode] = useState("preset"); 
-  const [selectedMonth, setSelectedMonth] = useState("all"); 
+  const [filterMode, setFilterMode] = useState("preset");
+  const [selectedMonth, setSelectedMonth] = useState("all");
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -32,6 +32,9 @@ export default function BarangayHealthTable() {
 
   const SPECIES_LIST = ["Hog", "Cow", "Chicken", "Carabao", "Goat", "Duck"];
   const [searchTerm, setSearchTerm] = useState("");
+
+  // State for mobile warning modal
+  const [showMobileWarning, setShowMobileWarning] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -62,9 +65,8 @@ export default function BarangayHealthTable() {
 
   const applyFilters = () => {
     let filtered = rawTransactions.filter(tx => {
-      const txDate = new Date(tx.timestamp); 
+      const txDate = new Date(tx.timestamp);
       if (isNaN(txDate)) return false;
-
       if (filterMode === "custom") {
         const start = customStart ? new Date(customStart) : new Date("1900-01-01");
         const end = customEnd ? new Date(customEnd) : new Date("2100-12-31");
@@ -197,6 +199,26 @@ export default function BarangayHealthTable() {
     window.print();
   };
 
+  // NEW: Mobile warning modal logic (now shows every time on small screens)
+  useEffect(() => {
+    const checkScreenSize = () => {
+      if (window.innerWidth <= 768) {
+        setShowMobileWarning(true);
+      } else {
+        setShowMobileWarning(false);
+      }
+    };
+
+    checkScreenSize(); // Check immediately on mount
+    window.addEventListener("resize", checkScreenSize);
+
+    return () => window.removeEventListener("resize", checkScreenSize);
+  }, []);
+
+  const dismissMobileWarning = () => {
+    setShowMobileWarning(false);
+  };
+
   if (loading) return (
     <div className="fixed inset-0 flex items-center justify-center bg-slate-50/30 backdrop-blur-sm z-[1000]">
       <div className="bg-white/80 p-10 rounded-[2.5rem] shadow-2xl border border-white flex flex-col items-center">
@@ -216,7 +238,7 @@ export default function BarangayHealthTable() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 py-10 space-y-12 font-sans print:p-8 print:max-w-none bg-slate-50/30">
+    <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 py-10 space-y-12 font-sans print:p-8 print:max-w-none bg-slate-50/30 relative">
       
       {/* Header */}
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200/60 p-8 md:p-10 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 print:shadow-none print:border-0">
@@ -314,7 +336,6 @@ export default function BarangayHealthTable() {
           { label: "Exported", val: externalStats.exported, color: "blue" },
           { label: "Slaughtered", val: externalStats.slaughtered, color: "slate", isSlaughtered: true },
         ].map((card, i) => {
-          // Explicit color mapping to ensure Tailwind classes are generated correctly
           const styles = {
             indigo:  "bg-indigo-50 border-indigo-200 text-indigo-600 val-indigo-900 shadow-indigo-500/20",
             emerald: "bg-emerald-50 border-emerald-200 text-emerald-600 val-emerald-900 shadow-emerald-500/20",
@@ -331,18 +352,12 @@ export default function BarangayHealthTable() {
               key={i}
               className={`
                 relative rounded-[2rem] border p-6 text-center transition-all duration-300 cursor-default
-                ${styleParts[0]} ${styleParts[1]} /* bg and border */
-                
-                /* The "Pop" Logic */
+                ${styleParts[0]} ${styleParts[1]}
                 hover:-translate-y-2 
                 hover:scale-105
                 hover:shadow-[0_20px_30px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)]
                 hover:z-10
-                
-                /* Visual reinforcement on hover */
                 hover:border-opacity-100 border-opacity-50
-                
-                /* Print Settings */
                 print:shadow-none print:border print:translate-y-0 print:scale-100
               `}
             >
@@ -355,7 +370,6 @@ export default function BarangayHealthTable() {
                 {card.val.toLocaleString()}
               </p>
 
-              {/* Dynamic glow effect at the bottom of the card on hover */}
               <div className={`
                 absolute inset-x-0 -bottom-px h-1 rounded-b-[2rem] opacity-0 transition-opacity duration-300
                 ${styleParts[2].replace('text-', 'bg-')} 
@@ -482,7 +496,7 @@ export default function BarangayHealthTable() {
               </button>
             </div>
 
-            {/* Modal Body - REMOVED overflow-y-auto to stop scrolling */}
+            {/* Modal Body */}
             <div className="p-8 bg-[#F8FAFC]">
               <div className="flex flex-col gap-3">
                 
@@ -500,7 +514,7 @@ export default function BarangayHealthTable() {
                   )}
                 </div>
 
-                {/* Species Cards - Reduced padding to fit all rows */}
+                {/* Species Cards */}
                 <div className="flex flex-col gap-2">
                   {SPECIES_LIST.map(name => {
                     const icons = { Hog: "🐖", Cow: "🐄", Chicken: "🐓", Carabao: "🐃", Goat: "🐐", Duck: "🦆" };
@@ -563,10 +577,35 @@ export default function BarangayHealthTable() {
 
       {/* Bottom Buttons */}
       <div className="flex flex-col sm:flex-row justify-center items-center gap-6 pt-6 pb-16 print:hidden">
-        <button onClick={() => navigate("/home")} className="px-8 sm:px-10 py-4 sm:py-5 bg-slate-800 text-white rounded-2xl font-black text-base sm:text-lg transition-all shadow-xl hover:bg-slate-700 active:scale-95 w-full sm:w-auto">
-            ← Return to Home
-          </button>
+        <button
+          onClick={() => navigate("/home")}
+          className="px-8 sm:px-10 py-4 sm:py-5 bg-slate-800 text-white rounded-2xl font-black text-base sm:text-lg transition-all shadow-xl hover:bg-slate-700 active:scale-95 w-full sm:w-auto"
+        >
+          ← Return to Home
+        </button>
       </div>
+
+      {/* NEW: Mobile Warning Modal - now appears every time on small screens */}
+      {showMobileWarning && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 text-center animate-in zoom-in-95 duration-300">
+            <div className="text-5xl mb-6">📱</div>
+            <h3 className="text-2xl font-bold text-slate-800 mb-4">
+              Optimized for Larger Screens
+            </h3>
+            <p className="text-slate-600 mb-8 leading-relaxed">
+              This detailed table is best viewed on a desktop or laptop. 
+              On smaller screens you may need to scroll horizontally or zoom in.
+            </p>
+            <button
+              onClick={dismissMobileWarning}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold px-8 py-4 rounded-2xl transition-all shadow-lg active:scale-95 w-full sm:w-auto"
+            >
+              Got It
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

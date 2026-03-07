@@ -445,10 +445,12 @@ export default function LandingPage() {
                     datasets: [{ 
                       label: "Confirmed Sick Cases", 
                       data: monthlyTrend, 
-                      borderColor: "#16a34a", 
-                      backgroundColor: "rgba(22, 163, 74, 0.15)", 
+                      borderColor: "#ef4444", // Red line
+                      backgroundColor: "rgba(239, 68, 68, 0.15)", // Light red fill
                       fill: true, 
-                      tension: 0.4 
+                      tension: 0.4,
+                      pointRadius: 4,
+                      pointBackgroundColor: "#ef4444"
                     }]
                   }} 
                   options={commonOptions} 

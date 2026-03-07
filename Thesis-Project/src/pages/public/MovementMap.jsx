@@ -465,6 +465,10 @@ export default function AnimalMovement() {
                       <div className="w-3 h-3 rounded-full bg-[#ef4444]"></div>
                       <span className="text-xs font-black text-slate-700">Critical (ASF/Flu/FMD)</span>
                     </div>
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="w-3 h-3 rounded-full bg-[#d97706]"></div>
+                      <span className="text-xs font-black text-slate-700">Unverified (Pending)</span>
+                    </div>
                   </div>
                 </div>
               </MapContainer>

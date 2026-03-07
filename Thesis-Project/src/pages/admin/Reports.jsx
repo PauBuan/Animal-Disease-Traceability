@@ -240,13 +240,6 @@ export default function AdminAnalytics() {
               <span>Animals</span>
               <span className="bg-white/25 px-2.5 py-1 rounded-lg text-xs font-bold">VIEW ALL</span>
             </button>
-            
-            <button
-              onClick={() => window.print()}
-              className="bg-slate-900 hover:bg-black hover:-translate-y-1 hover:shadow-2xl text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-wider shadow-xl transition-all duration-300 flex items-center justify-center gap-3 active:scale-95 w-full md:w-auto"
-            >
-              <span>📄 Print Official Report</span>
-            </button>
           </div>
         </div>
 
@@ -434,50 +427,81 @@ export default function AdminAnalytics() {
         </div>
 
         {/* BOTTOM ROW: RANKINGS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 hover:shadow-2xl transition-all">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Hotspot Barangays</h3>
-            <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+          {/* 1. Hotspot Barangays */}
+          <div className="bg-gradient-to-br from-white to-slate-50/80 p-6 sm:p-8 rounded-[2.5rem] shadow-lg border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+            <h3 className="text-xs sm:text-sm font-black text-slate-500 uppercase tracking-widest mb-5 sm:mb-6 flex items-center gap-2">
+              <span className="text-red-500 text-lg">🔥</span> Hotspot Barangays
+            </h3>
+            <div className="space-y-3 sm:space-y-4">
               {stats.topBrgys.map(([name, count], i) => (
-                <div key={i} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-transparent hover:border-red-100 hover:bg-red-50/30 transition-all">
-                  <span className="font-bold text-slate-700 text-sm uppercase">{name}</span>
-                  <span className="text-red-600 font-black px-3 py-1 bg-white rounded-lg shadow-sm">{count}</span>
+                <div 
+                  key={i} 
+                  className="flex justify-between items-center p-4 sm:p-5 bg-white rounded-2xl border border-slate-100 hover:border-red-200 hover:bg-red-50/30 transition-all duration-200 shadow-sm"
+                >
+                  <span className="font-bold text-slate-800 text-sm sm:text-base uppercase tracking-tight">
+                    {name}
+                  </span>
+                  <span className="text-red-600 font-black text-lg sm:text-xl px-4 py-1.5 bg-red-50 rounded-xl shadow-sm border border-red-100">
+                    {count}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 hover:shadow-2xl transition-all">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Top Pathogens</h3>
-            <div className="space-y-4">
+          {/* 2. Top Pathogens */}
+          <div className="bg-gradient-to-br from-white to-slate-50/80 p-6 sm:p-8 rounded-[2.5rem] shadow-lg border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+            <h3 className="text-xs sm:text-sm font-black text-slate-500 uppercase tracking-widest mb-5 sm:mb-6 flex items-center gap-2">
+              <span className="text-red-500 text-lg">🦠</span> Top Pathogens
+            </h3>
+            <div className="space-y-4 sm:space-y-5">
               {stats.topDiseases.map(([name, count], i) => (
-                <div key={i} className="flex flex-col pb-2">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-bold text-[13px] text-slate-700 uppercase tracking-tight">{name}</span>
-                    <span className="font-black text-red-600 text-sm">{count}</span>
+                <div key={i} className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-slate-800 text-sm sm:text-base uppercase tracking-tight">
+                      {name}
+                    </span>
+                    <span className="font-black text-red-600 text-base sm:text-lg">
+                      {count}
+                    </span>
                   </div>
-                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-1000 ${DANGER_CATS.includes(name) ? 'bg-red-600' : 'bg-blue-600'}`} 
-                      style={{ width: `${stats.totalSick > 0 ? (count / stats.totalSick) * 100 : 0}%` }}
-                    ></div>
+                  <div className="w-full bg-slate-100 h-2.5 sm:h-3 rounded-full overflow-hidden shadow-inner">
+                    <div
+                      className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                        DANGER_CATS.includes(name) ? 'bg-red-600' : 'bg-blue-600'
+                      }`}
+                      style={{ 
+                        width: `${stats.totalSick > 0 ? (count / stats.totalSick) * 100 : 0}%` 
+                      }}
+                    />
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 hover:shadow-2xl transition-all">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Vulnerable Species</h3>
-            <div className="space-y-4">
+          {/* 3. Vulnerable Species */}
+          <div className="bg-gradient-to-br from-white to-slate-50/80 p-6 sm:p-8 rounded-[2.5rem] shadow-lg border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+            <h3 className="text-xs sm:text-sm font-black text-slate-500 uppercase tracking-widest mb-5 sm:mb-6 flex items-center gap-2">
+              <span className="text-amber-500 text-lg">🐄</span> Vulnerable Species
+            </h3>
+            <div className="space-y-4 sm:space-y-5">
               {stats.topSpecies.map(([name, count], i) => (
-                <div key={i} className="group flex items-center gap-4 p-4 border border-slate-100 rounded-3xl shadow-sm hover:border-red-200 transition-all bg-white">
-                  <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform duration-300">
+                <div 
+                  key={i} 
+                  className="group flex items-center gap-4 p-4 sm:p-5 bg-white rounded-2xl border border-slate-100 shadow-sm hover:border-amber-200 hover:bg-amber-50/30 transition-all duration-200"
+                >
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl group-hover:scale-110 transition-transform duration-300 shadow-inner">
                     {animalIcons[name] || "🐾"}
                   </div>
-                  <div>
-                    <p className="font-black text-slate-800 uppercase text-xs tracking-wider">{name}</p>
-                    <p className="text-red-600 font-black text-2xl">{count} <span className="text-[10px] text-slate-400 uppercase font-bold">Impacted</span></p>
+                  <div className="flex-1">
+                    <p className="font-black text-slate-800 uppercase text-xs sm:text-sm tracking-wider">
+                      {name}
+                    </p>
+                    <p className="text-amber-600 font-black text-xl sm:text-2xl mt-0.5">
+                      {count} <span className="text-[10px] sm:text-xs text-slate-500 uppercase font-bold">Impacted</span>
+                    </p>
                   </div>
                 </div>
               ))}

@@ -19,7 +19,9 @@ export default function SummaryReport() {
   const navigate = useNavigate();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
+  
   const [stats, setStats] = useState({
     total: 0,
     average: 0,
@@ -27,10 +29,8 @@ export default function SummaryReport() {
     maxMonth: "N/A",
     min: 0,
     minMonth: "N/A",
-    trend: "Stable",
     riskLevel: "Low",
-    peakPercentage: 0,
-    momChange: 0
+    peakPercentage: 0
   });
   const [topDiseases, setTopDiseases] = useState([]);
 
@@ -92,50 +92,49 @@ export default function SummaryReport() {
   };
 
   const processData = (txList) => {
-    const monthsCount = Array(12).fill(0);
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const diseaseMap = {
-      "African Swine Fever (ASF)": 0,
-      "Avian Influenza": 0,
-      "Foot and Mouth Disease (FMD)": 0,
-      "Other": 0
-    };
+    
+    const totalMonthlyCount = Array(12).fill(0);
+    const mildMonthlyCount = Array(12).fill(0);
+    const criticalMonthlyCount = Array(12).fill(0);
+
+    const MILD_CATS = ["Respiratory Infection", "Parasitic Infection", "Digestive Issue / Scours", "Skin Condition / Mange", "Physical Injury / Lameness"];
+    const DANGER_CATS = ["African Swine Fever (ASF)", "Avian Influenza", "Foot and Mouth Disease (FMD)"];
+
+    const diseaseMap = {};
+    [...MILD_CATS, ...DANGER_CATS].forEach(cat => {
+      diseaseMap[cat] = 0;
+    });
+    diseaseMap["Other"] = 0;
 
     txList.forEach((tx) => {
       const severity = (tx.severity || "").toLowerCase();
+      
       if (severity === "mild" || severity === "dangerous") {
         const date = new Date(tx.date || tx.timestamp);
         const monthIndex = date.getMonth();
-        monthsCount[monthIndex] += Number(tx.quantity) || 1;
+        const qty = Number(tx.quantity) || 1;
 
-        if (severity === "dangerous") {
-          const diag = tx.diagnosedDisease || "Other";
-          if (diseaseMap.hasOwnProperty(diag)) {
-            diseaseMap[diag] += Number(tx.quantity) || 1;
-          } else {
-            diseaseMap["Other"] += Number(tx.quantity) || 1;
-          }
+        totalMonthlyCount[monthIndex] += qty;
+        if (severity === "mild") {
+          mildMonthlyCount[monthIndex] += qty;
+        } else if (severity === "dangerous") {
+          criticalMonthlyCount[monthIndex] += qty;
+        }
+
+        const diag = tx.diagnosedDisease || "Other";
+        if (diseaseMap.hasOwnProperty(diag)) {
+          diseaseMap[diag] += qty;
+        } else {
+          diseaseMap["Other"] += qty;
         }
       }
     });
 
-    const total = monthsCount.reduce((a, b) => a + b, 0);
-    const maxVal = Math.max(...monthsCount);
-    const minVal = Math.min(...monthsCount);
-    const maxIdx = monthsCount.indexOf(maxVal);
-    const minIdx = monthsCount.indexOf(minVal);
-    
-    const lastMonthVal = monthsCount[11];
-    const prevMonthVal = monthsCount[10];
-    let trend = "Stable";
-    let momChange = 0;
-    if (lastMonthVal > prevMonthVal) {
-      trend = "Increasing";
-      momChange = ((lastMonthVal - prevMonthVal) / (prevMonthVal || 1)) * 100;
-    } else if (lastMonthVal < prevMonthVal) {
-      trend = "Decreasing";
-      momChange = ((lastMonthVal - prevMonthVal) / (prevMonthVal || 1)) * 100;
-    }
+    const total = totalMonthlyCount.reduce((a, b) => a + b, 0);
+    const maxVal = Math.max(...totalMonthlyCount);
+    const minVal = Math.min(...totalMonthlyCount);
+    const maxIdx = totalMonthlyCount.indexOf(maxVal);
 
     const riskLevel = total > 500 ? "High" : total > 200 ? "Medium" : "Low";
     const peakPercentage = total > 0 ? ((maxVal / total) * 100).toFixed(1) : 0;
@@ -145,34 +144,58 @@ export default function SummaryReport() {
       .map(([disease, count]) => ({ disease, count }));
 
     setTopDiseases(sortedDiseases);
+
     setStats({
       total,
       average: total > 0 ? (total / 12).toFixed(1) : "0.0",
       max: maxVal,
       maxMonth: monthNames[maxIdx],
       min: minVal,
-      minMonth: monthNames[minIdx],
-      trend,
+      minMonth: monthNames[totalMonthlyCount.indexOf(minVal)],
       riskLevel,
-      peakPercentage,
-      momChange: momChange.toFixed(1)
+      peakPercentage
     });
 
     setChartData({
       labels: monthNames,
-      datasets: [{
-        label: "Confirmed Sick Cases",
-        data: monthsCount,
-        fill: true,
-        borderColor: "#dc2626",
-        backgroundColor: "rgba(220, 38, 38, 0.12)",
-        tension: 0.4,
-        pointRadius: 5,
-        pointHoverRadius: 8,
-        pointBackgroundColor: "#dc2626",
-        pointBorderColor: "#fff",
-        pointBorderWidth: 3
-      }]
+      datasets: [
+        {
+          label: "Total Cases",
+          data: totalMonthlyCount,
+          fill: true,
+          borderColor: "#dc2626",
+          backgroundColor: "rgba(220, 38, 38, 0.05)",
+          tension: 0.4,
+          pointRadius: 4,
+          pointBackgroundColor: "#dc2626",
+          pointBorderColor: "#fff",
+          pointBorderWidth: 2,
+        },
+        {
+          label: "Mild Cases",
+          data: mildMonthlyCount,
+          fill: true,
+          borderColor: "#f97316",
+          backgroundColor: "rgba(249, 115, 22, 0.05)",
+          tension: 0.4,
+          pointRadius: 4,
+          pointBackgroundColor: "#f97316",
+          pointBorderColor: "#fff",
+          pointBorderWidth: 2,
+        },
+        {
+          label: "Critical Cases",
+          data: criticalMonthlyCount,
+          fill: true,
+          borderColor: "#8b5cf6",
+          backgroundColor: "rgba(139, 92, 246, 0.05)",
+          tension: 0.4,
+          pointRadius: 4,
+          pointBackgroundColor: "#8b5cf6",
+          pointBorderColor: "#fff",
+          pointBorderWidth: 2,
+        }
+      ]
     });
   };
 
@@ -201,7 +224,7 @@ export default function SummaryReport() {
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight mb-3 sm:mb-4 uppercase">Diseases Summary Report</h1>
           <p className="text-base sm:text-lg md:text-xl text-slate-600 max-w-3xl mx-auto font-medium px-2">
-            Annual epidemiological overview of confirmed sick cases (mild + dangerous severity) across Santa Rosa City
+            Multi-severity epidemiological overview across Santa Rosa City
           </p>
         </header>
 
@@ -268,8 +291,8 @@ export default function SummaryReport() {
           </div>
         </div>
 
-        {/* KPI CARDS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-10 sm:mb-12">
+        {/* KPI CARDS (Updated to 4 Columns for better fit) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-10 sm:mb-12">
           <div className="bg-gradient-to-br from-red-600 to-rose-700 p-6 sm:p-8 rounded-3xl text-white shadow-2xl transition-all hover:scale-[1.02]">
             <p className="text-red-100 text-xs sm:text-sm font-semibold uppercase tracking-wider mb-1 sm:mb-2">Total Confirmed Cases</p>
             <p className="text-4xl sm:text-5xl lg:text-6xl font-black">{stats.total.toLocaleString()}</p>
@@ -289,13 +312,6 @@ export default function SummaryReport() {
           </div>
 
           <div className="bg-white rounded-3xl border border-slate-100 shadow-lg p-6 sm:p-8">
-            <p className="text-slate-600 font-medium text-sm mb-1 sm:mb-2">MoM Change</p>
-            <p className={`text-3xl sm:text-4xl font-black ${stats.momChange > 0 ? "text-red-600" : "text-emerald-600"}`}>
-              {stats.momChange > 0 ? "+" : ""}{stats.momChange}%
-            </p>
-          </div>
-
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-lg p-6 sm:p-8">
             <p className="text-slate-600 font-medium text-sm mb-1 sm:mb-2">Risk Level</p>
             <span className={`inline-block px-5 sm:px-6 py-2 sm:py-3 rounded-full text-lg sm:text-xl font-bold ${
               stats.riskLevel === "High" ? "bg-red-100 text-red-700 border-2 border-red-300"
@@ -310,94 +326,114 @@ export default function SummaryReport() {
         {/* MAIN CHART + TOP CASES */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 mb-10 sm:mb-12">
           <div className="lg:col-span-8 bg-white rounded-3xl shadow-xl border border-slate-100/80 p-6 sm:p-8 lg:p-10">
-            <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-4 sm:mb-6 tracking-tight">
-              Monthly Sick Cases Trend
-            </h3>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                Severity Trend Analysis
+              </h3>
+              <div className="flex gap-4">
+                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-600"></div><span className="text-[10px] font-bold uppercase text-slate-400">Total</span></div>
+                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-500"></div><span className="text-[10px] font-bold uppercase text-slate-400">Mild</span></div>
+                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-violet-500"></div><span className="text-[10px] font-bold uppercase text-slate-400">Critical</span></div>
+              </div>
+            </div>
             <div className="h-[300px] sm:h-[380px] lg:h-[480px]">
               <Line
                 data={chartData}
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
-                  plugins: { legend: { display: false }, tooltip: { mode: "index", intersect: false } },
+                  plugins: { 
+                    legend: { display: false },
+                    tooltip: { mode: "index", intersect: false } 
+                  },
                   scales: {
                     y: { beginAtZero: true, grid: { color: "rgba(0,0,0,0.04)" } },
                     x: { grid: { display: false } }
-                  },
-                  animation: { duration: 1500, easing: "easeOutQuart" }
+                  }
                 }}
               />
             </div>
           </div>
 
-          <div className="lg:col-span-4 bg-white rounded-3xl shadow-xl border border-slate-100/80 p-6 sm:p-8 lg:p-10">
-            <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-4 sm:mb-6 tracking-tight">
-              Top Reported Diseases
-            </h3>
-            <div className="space-y-3 sm:space-y-4 max-h-[300px] sm:max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
-              {topDiseases.slice(0, 5).map(({ disease, count }) => (
-                <div key={disease} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-100">
-                  <div>
-                    <p className="font-bold text-slate-900 text-base sm:text-lg">{disease}</p>
-                    <p className="text-xs sm:text-sm text-slate-500">{count.toLocaleString()} cases</p>
+          {/* TOP 8 PATHOGENS SECTION */}
+          <div className="lg:col-span-4 bg-gradient-to-br from-white to-slate-50/80 p-6 sm:p-8 rounded-[2.5rem] shadow-lg border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xs sm:text-sm font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <span className="text-red-500 text-lg">🦠</span> Disease Ranking
+              </h3>
+              <span className="text-[10px] font-black text-white bg-slate-800 px-2 py-1 rounded-lg tracking-tighter">TOP 8</span>
+            </div>
+            
+            <div className="space-y-4">
+              {topDiseases.slice(0, 8).map(({ disease, count }, i) => {
+                const isMild = ["Respiratory Infection", "Parasitic Infection", "Digestive Issue / Scours", "Skin Condition / Mange", "Physical Injury / Lameness"].includes(disease);
+                const percentage = stats.total > 0 ? (count / stats.total) * 100 : 0;
+                
+                return (
+                  <div key={i} className="group flex flex-col gap-1.5">
+                    <div className="flex justify-between items-end">
+                      <div className="flex flex-col">
+                        <span className={`text-[9px] font-black uppercase tracking-tight ${isMild ? 'text-orange-500' : 'text-violet-600'}`}>
+                          {isMild ? 'Mild Severity' : 'Critical Threat'}
+                        </span>
+                        <span className="font-bold text-slate-800 text-[13px] sm:text-sm uppercase leading-tight group-hover:text-red-600 transition-colors">
+                          {disease}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-black text-slate-900 text-sm sm:text-base leading-none">
+                          {count.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden shadow-inner relative border border-slate-200/50">
+                      <div
+                        className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                          isMild ? 'bg-gradient-to-r from-orange-400 to-orange-600' : 'bg-gradient-to-r from-violet-500 to-indigo-700'
+                        }`}
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
                   </div>
-                  <span className={`mt-2 sm:mt-0 px-3 sm:px-4 py-1 sm:py-2 rounded-full text-xs font-bold ${
-                    disease.includes("ASF") || disease.includes("Avian") || disease.includes("FMD")
-                    ? "bg-red-100 text-red-700 border border-red-200"
-                    : "bg-slate-100 text-slate-700 border border-slate-200"
-                  }`}>
-                    {disease.includes("ASF") || disease.includes("Avian") || disease.includes("FMD") ? "High Risk" : "Notified"}
-                  </span>
-                </div>
-              ))}
-              {topDiseases.length === 0 && (
-                <p className="text-center text-slate-500 py-6 sm:py-8 text-sm">No matching records found.</p>
-              )}
+                );
+              })}
             </div>
           </div>
         </div>
 
-        {/* KEY INSIGHTS & RECOMMENDATIONS */}
+        {/* KEY INSIGHTS (MoM text removed) */}
         <div className="mt-12 sm:mt-16 flex justify-center px-2 sm:px-0">
           <div className="group bg-gradient-to-r from-indigo-50 via-purple-50 to-blue-50 p-8 sm:p-10 lg:p-12 rounded-[2.5rem] sm:rounded-[3rem] border border-indigo-200/60 shadow-2xl w-full transition-all duration-500 hover:shadow-3xl hover:-translate-y-2 text-center">
             <h3 className="text-2xl sm:text-3xl lg:text-4xl font-black text-indigo-900 mb-4 sm:mb-6 tracking-tight">
-              Key Insights & Recommendations
+              Strategic Health Insights
             </h3>
             
             <div className="space-y-4 sm:space-y-6 text-slate-800 leading-relaxed text-base sm:text-lg max-w-4xl mx-auto px-2 sm:px-0">
               <p>
-                Analysis of selected data shows <strong>{stats.total.toLocaleString()}</strong> confirmed cases. 
-                The peak period recorded <strong>{stats.max}</strong> cases in <strong>{stats.maxMonth}</strong> 
-                ({stats.peakPercentage}% of the current selection).
+                Comprehensive analysis shows <strong>{stats.total.toLocaleString()}</strong> total incidents recorded across the selected timeframe. 
+                Data peaks are identified in <strong>{stats.maxMonth}</strong> with <strong>{stats.max}</strong> cases.
               </p>
 
-              {stats.trend === "Increasing" ? (
+              {stats.riskLevel === "High" ? (
                 <p className="text-red-700 font-medium">
-                  <strong>Alert:</strong> Cases show an upward trend ({stats.momChange > 0 ? "+" : ""}{stats.momChange}% change). 
-                  Escalated biosecurity protocols and immediate surveillance audits are advised.
+                  <strong>Urgent Action:</strong> Current case volume suggests high transmission risk. 
+                  Prioritize vaccination in areas reporting <strong>Critical</strong> (Violet) cases.
                 </p>
               ) : (
                 <p className="text-emerald-700 font-medium">
-                  <strong>Positive Status:</strong> Case volume is stable or declining ({stats.momChange}% change). 
-                  Current control measures appear effective for this period.
-                </p>
-              )}
-
-              {stats.riskLevel === "High" && (
-                <p className="text-red-600 font-bold text-lg sm:text-xl">
-                  Critical Risk Level Detected: Immediate Response Required
+                  <strong>Stable Status:</strong> Total cases are manageable. 
+                  Continue monitoring <strong>Mild</strong> (Orange) cases to prevent cluster outbreaks.
                 </p>
               )}
 
               <p className="text-slate-600 italic mt-4 sm:mt-6 text-xs sm:text-sm">
-                All insights are verified via Santa Rosa Veterinary Blockchain Surveillance. 
-                Cross-reference with local health advisories for field action.
+                *Multi-layer chart includes verified blockchain entries for total, mild, and dangerous severities.
               </p>
             </div>
           </div>
         </div>
 
-        {/* ACTION BUTTONS */}
         <div className="mt-10 sm:mt-12 flex flex-col sm:flex-row justify-center gap-4 sm:gap-6 pb-8 sm:pb-12">
           <button onClick={() => navigate("/home")} className="px-8 sm:px-10 py-4 sm:py-5 bg-slate-800 text-white rounded-2xl font-black text-base sm:text-lg transition-all shadow-xl hover:bg-slate-700 active:scale-95 w-full sm:w-auto">
             ← Return to Home
