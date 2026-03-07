@@ -31,13 +31,32 @@ export default function AuditTrailModal({
     return path;
   }, [history]);
 
-  // --- NEW: REVERSE CHRONOLOGICAL SORT FOR TIMELINE ---
+  // --- REVERSE CHRONOLOGICAL SORT FOR TIMELINE ---
   const sortedHistory = useMemo(() => {
     if (!history) return [];
     return [...history].sort(
       (a, b) => new Date(b.data.timestamp) - new Date(a.data.timestamp),
     );
   }, [history]);
+
+  // --- NEW: DYNAMIC HEADER DATA EXTRACTION ---
+  // Always prefer the newest blockchain data over the local state to ensure accuracy
+  const displayData = useMemo(() => {
+    if (sortedHistory.length > 0) {
+      const newestRecord = sortedHistory[0].data;
+      return {
+        batchId: newestRecord.batchId,
+        species: newestRecord.species,
+        quantity: newestRecord.quantity,
+      };
+    }
+    // Fallback to selectedAnimal if history hasn't loaded yet
+    return {
+      batchId: selectedAnimal?.batchId || "Loading...",
+      species: selectedAnimal?.species || "...",
+      quantity: selectedAnimal?.quantity || 0,
+    };
+  }, [sortedHistory, selectedAnimal]);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -48,15 +67,10 @@ export default function AuditTrailModal({
             <h3 className="text-2xl font-black text-slate-900">
               Blockchain Audit Trail
             </h3>
-            {selectedAnimal && (
-              <p className="text-emerald-500 text-sm font-bold uppercase tracking-tighter">
-                {selectedAnimal.batchId ||
-                  (sortedHistory.length > 0
-                    ? sortedHistory[0].data.batchId
-                    : "Legacy")}{" "}
-                - {selectedAnimal.species} ({selectedAnimal.quantity} heads)
-              </p>
-            )}
+            <p className="text-emerald-500 text-sm font-bold uppercase tracking-tighter">
+              {displayData.batchId} - {displayData.species} (
+              {displayData.quantity} heads)
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -102,25 +116,34 @@ export default function AuditTrailModal({
                 </div>
               )}
 
-              {/* TIMELINE (Now Newest First) */}
+              {/* TIMELINE (Newest First) */}
               <div className="space-y-0 mt-4">
                 {sortedHistory.map((item, i) => {
-                  // Because we are going backwards in time (newest to oldest):
-                  // The Split Event happened right before the FIRST INHERITED item appears.
+                  // 1. Detect if this is the Child -> Parent boundary
                   const isFirstParentEvent =
                     item.isInherited &&
                     i > 0 &&
                     !sortedHistory[i - 1].isInherited;
 
+                  // 2. Detect if a quantity deduction (Split) happened in the Parent Batch
+                  const olderItem = sortedHistory[i + 1];
+                  const isDeduction =
+                    olderItem &&
+                    item.data.batchId === olderItem.data.batchId &&
+                    item.data.quantity < olderItem.data.quantity;
+                  const deductedQty = isDeduction
+                    ? olderItem.data.quantity - item.data.quantity
+                    : 0;
+
                   return (
                     <React.Fragment key={i}>
-                      {/* SPLIT EVENT DIVIDER */}
+                      {/* BOUNDARY DIVIDER: From Child to Parent Lineage */}
                       {isFirstParentEvent && (
                         <div className="relative pl-10 py-6">
                           <div className="absolute left-[11px] top-0 bottom-0 w-0.5 border-l-2 border-slate-300 border-dashed"></div>
                           <div className="bg-amber-100 border border-amber-200 text-amber-800 text-xs font-black uppercase tracking-widest p-3 rounded-xl flex items-center gap-3 relative z-10 w-fit shadow-sm">
-                            <span>✂️</span> Batch Split Event (Inherited History
-                            Below)
+                            <span>🔗</span> Batch Split Origin (Inherited
+                            History Below)
                           </div>
                         </div>
                       )}
@@ -131,7 +154,7 @@ export default function AuditTrailModal({
                           !isFirstParentEvent && (
                             <div className="absolute left-[11px] top-6 bottom-0 w-0.5 bg-slate-200 group-hover:bg-emerald-200 transition-colors"></div>
                           )}
-                        {/* Connect line through the split divider */}
+                        {/* Connect line through the boundary divider */}
                         {i !== sortedHistory.length - 1 &&
                           isFirstParentEvent && (
                             <div className="absolute left-[11px] top-6 bottom-0 w-0.5 bg-slate-200 group-hover:bg-emerald-200 transition-colors"></div>
@@ -145,6 +168,7 @@ export default function AuditTrailModal({
                         <div
                           className={`bg-white border rounded-2xl p-5 transition-all hover:shadow-xl ${item.isInherited ? "border-slate-200 opacity-80" : "border-slate-200 hover:border-emerald-500/30 hover:shadow-slate-200/50"}`}
                         >
+                          {/* Transaction Header */}
                           <div className="flex justify-between items-start mb-4">
                             <span className="bg-slate-900 text-white text-[10px] px-2 py-1 rounded font-mono uppercase tracking-widest">
                               TX: {item.txId.substring(0, 12)}...
@@ -167,6 +191,23 @@ export default function AuditTrailModal({
                             )}
                           </p>
 
+                          {/* --- PARENT SPLIT/DEDUCTION BANNER --- */}
+                          {isDeduction && (
+                            <div className="mb-4 bg-orange-50 border border-orange-200 p-3.5 rounded-xl flex items-center gap-3 shadow-sm">
+                              <span className="text-xl">✂️</span>
+                              <div>
+                                <div className="text-[10px] font-black text-orange-600 uppercase tracking-widest">
+                                  Fractional Transfer Event
+                                </div>
+                                <div className="text-xs font-bold text-orange-800">
+                                  {deductedQty} head(s) were split and moved
+                                  from this batch.
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Main Data Grid */}
                           <div className="grid grid-cols-2 gap-3 text-[11px] text-slate-500 font-medium">
                             <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
                               <span className="block text-slate-400 uppercase text-[9px] mb-1">
@@ -221,6 +262,18 @@ export default function AuditTrailModal({
                               </span>
                             </div>
                           </div>
+
+                          {/* Diagnosis Alert */}
+                          {item.data.diagnosedDisease &&
+                            item.data.severity !== "safe" &&
+                            item.data.severity !== "Ongoing" && (
+                              <div className="mt-3 bg-red-50 border border-red-100 p-3 rounded-lg flex items-center gap-3">
+                                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                                <span className="text-xs font-black text-red-600">
+                                  DIAGNOSIS: {item.data.diagnosedDisease}
+                                </span>
+                              </div>
+                            )}
                         </div>
                       </div>
                     </React.Fragment>

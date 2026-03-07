@@ -37,7 +37,7 @@ export default function VetTransactionLogs() {
       const res = await fetch("http://localhost:3001/api/transactions");
       const data = await res.json();
       const activeData = (data || []).filter(
-        (tx) => !["Slaughtered", "Exported"].includes(tx.status),
+        (tx) => !["Slaughtered", "Exported", "Culled"].includes(tx.status),
       );
       setTransactions(activeData);
     } catch (err) {
@@ -150,6 +150,12 @@ export default function VetTransactionLogs() {
       return alert("Please select or type a specific disease.");
     }
 
+    // --- NEW: DYNAMIC STATUS BASED ON SEVERITY ---
+    const finalStatus =
+      diagnosisForm.severity === "dangerous"
+        ? "Cull Ordered"
+        : "Verified by Vet";
+
     try {
       const res = await fetch(
         `http://localhost:3001/api/transactions/${selectedTx._id}`,
@@ -157,7 +163,7 @@ export default function VetTransactionLogs() {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            status: "Verified by Vet",
+            status: finalStatus,
             diagnosedDisease: finalDisease,
             severity: diagnosisForm.severity,
             username: currentUser.username,
@@ -177,7 +183,11 @@ export default function VetTransactionLogs() {
       if (activeTab === "pending") setActiveTab("managed");
 
       closeModal();
-      alert("Animal status updated successfully!");
+      alert(
+        diagnosisForm.severity === "dangerous"
+          ? "Cull Order Issued Successfully!"
+          : "Animal status updated successfully!",
+      );
     } catch (err) {
       alert("Error: " + err.message);
     }
@@ -268,7 +278,6 @@ export default function VetTransactionLogs() {
 
           {/* FILTERS & SORT */}
           <div className="flex gap-3 w-full lg:w-auto">
-            {/* Only show Severity filter on the Managed tab */}
             {activeTab === "managed" && (
               <select
                 value={filterSeverity}
@@ -336,10 +345,13 @@ export default function VetTransactionLogs() {
                   </tr>
                 ) : (
                   processedTransactions.map((tx) => {
+                    // --- NEW: CULL LOCK LOGIC ---
                     const isLocked = [
                       "Pending Transfer",
                       "Pending Regulator Verification",
                       "Pending Vet Review",
+                      "Cull Ordered",
+                      "Pending Cull Verification",
                     ].includes(tx.status);
 
                     return (
@@ -407,8 +419,9 @@ export default function VetTransactionLogs() {
                                 🔒 Locked
                               </button>
                               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-slate-800 text-white text-[10px] p-2 rounded shadow-lg text-center z-10">
-                                Action disabled. This asset is currently
-                                undergoing a Transfer or Exit workflow.
+                                {tx.status === "Cull Ordered"
+                                  ? "Awaiting Farmer Disposal."
+                                  : "Action disabled. Asset is locked in a workflow."}
                               </div>
                             </div>
                           ) : (
@@ -579,13 +592,34 @@ export default function VetTransactionLogs() {
                     </div>
                   )}
 
+                  {/* --- NEW: DYNAMIC WARNING BANNER --- */}
+                  {diagnosisForm.severity === "dangerous" && (
+                    <div className="bg-red-50 border border-red-200 p-4 rounded-xl mt-4 shadow-sm">
+                      <h4 className="text-red-700 font-black text-xs uppercase tracking-widest mb-1 flex items-center gap-2">
+                        ⚠️ Legal Warning
+                      </h4>
+                      <p className="text-red-600 text-xs font-medium leading-relaxed">
+                        Issuing this order will legally lock the batch. The
+                        farmer will be required to dispose of the assets on-site
+                        and provide proof to the Regulator.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* --- NEW: DYNAMIC SUBMIT BUTTON --- */}
                   <button
                     onClick={handleDiagnosisSubmit}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest py-4 rounded-xl mt-2 shadow-lg shadow-emerald-200 transition-all active:scale-[0.98]"
+                    className={`w-full text-white font-black uppercase tracking-widest py-4 rounded-xl mt-4 shadow-lg transition-all active:scale-[0.98] ${
+                      diagnosisForm.severity === "dangerous"
+                        ? "bg-red-600 hover:bg-red-700 shadow-red-200 animate-pulse"
+                        : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200"
+                    }`}
                   >
-                    {modalType === "diagnose"
-                      ? "Submit Verification"
-                      : "Update Status"}
+                    {diagnosisForm.severity === "dangerous"
+                      ? "Issue Mandatory Cull Order"
+                      : modalType === "diagnose"
+                        ? "Submit Verification"
+                        : "Update Status"}
                   </button>
                 </div>
               )}

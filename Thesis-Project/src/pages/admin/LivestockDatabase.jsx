@@ -52,7 +52,9 @@ export default function AdminAnimalDB() {
   const processTransactions = (txList) => {
     // 1. FILTER based on Active Tab
     const filteredList = txList.filter((tx) => {
-      const isArchived = ["Slaughtered", "Exported"].includes(tx.status);
+      const isArchived = ["Slaughtered", "Exported", "Culled"].includes(
+        tx.status,
+      );
       return activeTab === "active" ? !isArchived : isArchived;
     });
 
@@ -71,6 +73,7 @@ export default function AdminAnimalDB() {
           unverified: 0,
           sick: 0,
           archivedCount: 0,
+          culledCount: 0,
           transactions: [],
         };
       }
@@ -78,7 +81,9 @@ export default function AdminAnimalDB() {
       grouped[key].transactions.push(tx);
 
       // Count Logic
-      if (["Slaughtered", "Exported"].includes(tx.status)) {
+      if (tx.status === "Culled") {
+        grouped[key].culledCount += tx.quantity || 1; // <--- NEW TALLY
+      } else if (["Slaughtered", "Exported"].includes(tx.status)) {
         grouped[key].archivedCount += tx.quantity || 1;
       } else {
         const severity = (tx.severity || "").toLowerCase();
@@ -138,7 +143,9 @@ export default function AdminAnimalDB() {
       (tx) => tx.fullName === farmer && tx.location === barangay,
     );
     const currentTabAnimals = animals.filter((tx) => {
-      const isArchived = ["Slaughtered", "Exported"].includes(tx.status);
+      const isArchived = ["Slaughtered", "Exported", "Culled"].includes(
+        tx.status,
+      );
       return activeTab === "active" ? !isArchived : isArchived;
     });
 
@@ -284,14 +291,27 @@ export default function AdminAnimalDB() {
             </div>
           </>
         ) : (
-          <div className="col-span-3 bg-slate-100 border-2 border-slate-200 p-6 rounded-3xl text-center shadow-sm">
-            <p className="text-xs font-black uppercase text-slate-500 tracking-widest opacity-80">
-              Total Exited (Slaughtered/Exported)
-            </p>
-            <p className="text-5xl font-black text-slate-700 mt-2">
-              {farmerData.reduce((sum, d) => sum + d.archivedCount, 0)}
-            </p>
-          </div>
+          <>
+            {/* CHANGED to col-span-2 */}
+            <div className="col-span-2 bg-slate-100 border-2 border-slate-200 p-6 rounded-3xl text-center shadow-sm">
+              <p className="text-xs font-black uppercase text-slate-500 tracking-widest opacity-80">
+                Safe Exits (Slaughtered/Exported)
+              </p>
+              <p className="text-5xl font-black text-slate-700 mt-2">
+                {farmerData.reduce((sum, d) => sum + d.archivedCount, 0)}
+              </p>
+            </div>
+
+            {/* Culled Biohazard Box */}
+            <div className="bg-red-50 border-2 border-red-200 p-6 rounded-3xl text-center shadow-sm">
+              <p className="text-xs font-black uppercase text-red-600 tracking-widest opacity-80 flex items-center justify-center gap-2">
+                <span></span> Total Culled
+              </p>
+              <p className="text-5xl font-black text-red-700 mt-2">
+                {farmerData.reduce((sum, d) => sum + d.culledCount, 0)}
+              </p>
+            </div>
+          </>
         )}
       </div>
 
@@ -366,9 +386,14 @@ export default function AdminAnimalDB() {
                     </th>
                   </>
                 ) : (
-                  <th className="p-5 font-bold text-center bg-slate-700/30">
-                    Total Exited
-                  </th>
+                  <>
+                    <th className="p-5 font-bold text-center bg-slate-700/30">
+                      Safe Exits
+                    </th>
+                    <th className="p-5 font-bold text-center bg-red-700/30">
+                      Culled
+                    </th>
+                  </>
                 )}
                 <th className="p-5 font-bold text-center">Action</th>
               </tr>
@@ -410,9 +435,14 @@ export default function AdminAnimalDB() {
                         </td>
                       </>
                     ) : (
-                      <td className="p-5 text-center font-black text-slate-600 bg-slate-50/30">
-                        {data.archivedCount || "-"}
-                      </td>
+                      <>
+                        <td className="p-5 text-center font-black text-slate-600 bg-slate-50/30">
+                          {data.archivedCount || "-"}
+                        </td>
+                        <td className="p-5 text-center font-black text-red-600 bg-red-50/30">
+                          {data.culledCount || "-"}
+                        </td>
+                      </>
                     )}
 
                     <td className="p-5 text-center pr-8">
@@ -507,17 +537,19 @@ export default function AdminAnimalDB() {
 
                       <div className="grid grid-cols-2 gap-3 text-sm mb-4">
                         <div
-                          className={`p-3 rounded-lg border ${isSick ? "bg-red-50/50 border-red-100" : "bg-slate-50 border-slate-100"}`}
+                          className={`p-3 rounded-lg border ${isSick || animal.status === "Culled" ? "bg-red-50/50 border-red-100" : "bg-slate-50 border-slate-100"}`}
                         >
                           <span className="block text-slate-400 text-xs mb-1">
                             Status / Health
                           </span>
                           <span
-                            className={`font-semibold ${isSick ? "text-red-700" : "text-slate-800"}`}
+                            className={`font-semibold ${isSick || animal.status === "Culled" ? "text-red-700" : "text-slate-800"}`}
                           >
-                            {isSick && animal.diagnosedDisease
-                              ? animal.diagnosedDisease
-                              : animal.status}
+                            {animal.status === "Culled"
+                              ? "CULLED & DISPOSED"
+                              : isSick && animal.diagnosedDisease
+                                ? animal.diagnosedDisease
+                                : animal.status}
                           </span>
                         </div>
                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">

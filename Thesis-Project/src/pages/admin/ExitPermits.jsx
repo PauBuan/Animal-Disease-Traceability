@@ -32,16 +32,16 @@ export default function ExitPermits() {
       );
       if (!rejectionReason) return;
     } else {
-      if (
-        !confirm(
-          "Verify this exit? This will PERMANENTLY REMOVE the asset from active inventory on the Blockchain.",
-        )
-      )
-        return;
+      const isCull = request.destinationType === "Cull";
+      const warningMsg = isCull
+        ? "Verify this disposal? This will PERMANENTLY BURN the asset on the Blockchain as a BIOHAZARD CULL."
+        : "Verify this exit? This will PERMANENTLY REMOVE the asset from active inventory on the Blockchain.";
+
+      if (!confirm(warningMsg)) return;
     }
 
     setProcessing(true);
-    const user = JSON.parse(localStorage.getItem("user")); // Regulator User
+    const user = JSON.parse(localStorage.getItem("user"));
 
     try {
       const res = await fetch(
@@ -68,7 +68,7 @@ export default function ExitPermits() {
           ? "Exit Verified & Asset Burned."
           : "Proof Rejected.",
       );
-      fetchRequests(); // Refresh list
+      fetchRequests();
     } catch (err) {
       alert("Error: " + err.message);
     } finally {
@@ -79,7 +79,7 @@ export default function ExitPermits() {
   return (
     <div className="p-8">
       <h1 className="text-2xl font-black text-slate-800 mb-6">
-        Exit Verification (Slaughter/Export)
+        Exit Verification (Slaughter / Export / Disposal)
       </h1>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -100,10 +100,10 @@ export default function ExitPermits() {
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="p-4 text-xs font-bold uppercase text-slate-500">
-                  Asset
+                  Asset / Batch ID
                 </th>
                 <th className="p-4 text-xs font-bold uppercase text-slate-500">
-                  Destination
+                  Exit Type & Details
                 </th>
                 <th className="p-4 text-xs font-bold uppercase text-slate-500">
                   Proof Provided
@@ -114,60 +114,87 @@ export default function ExitPermits() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {requests.map((r) => (
-                <tr key={r._id} className="hover:bg-slate-50/50">
-                  <td className="p-4">
-                    <div className="font-bold text-slate-700">
-                      {r.farmerUsername}
-                    </div>
-                    <div className="text-xs font-mono bg-slate-100 w-fit px-2 rounded mt-1">
-                      {r.batchId}
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <span
-                      className={`text-[10px] font-bold px-2 py-1 rounded uppercase ${
-                        r.destinationType === "Slaughter"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-purple-100 text-purple-700"
-                      }`}
-                    >
-                      {r.destinationType}
-                    </span>
-                    <div className="text-xs text-slate-500 mt-1">
-                      {r.receiverDetails?.name}
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <a
-                      href={r.proofDocumentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-blue-600 font-medium text-sm hover:underline bg-blue-50 px-3 py-2 rounded-lg w-fit"
-                    >
-                      📄 View Receipt
-                    </a>
-                  </td>
-                  <td className="p-4 text-center">
-                    <div className="flex justify-center gap-2">
-                      <button
-                        onClick={() => handleDecision("REJECT", r)}
-                        className="px-3 py-2 rounded-lg text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 transition border border-red-100"
-                        disabled={processing}
+              {requests.map((r) => {
+                const isCull = r.destinationType === "Cull";
+
+                return (
+                  <tr
+                    key={r._id}
+                    className={`transition-colors ${isCull ? "bg-red-50/40 hover:bg-red-50/80" : "hover:bg-slate-50/50"}`}
+                  >
+                    <td className="p-4">
+                      <div
+                        className={`font-bold ${isCull ? "text-red-800" : "text-slate-700"}`}
                       >
-                        Reject
-                      </button>
-                      <button
-                        onClick={() => handleDecision("APPROVE", r)}
-                        className="px-4 py-2 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-md shadow-emerald-200 transition"
-                        disabled={processing}
+                        {r.farmerUsername}
+                      </div>
+                      <div
+                        className={`text-xs font-mono w-fit px-2 py-0.5 rounded mt-1 border ${isCull ? "bg-red-100 text-red-700 border-red-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}
                       >
-                        {processing ? "Verifying..." : "Verify Exit"}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {r.batchId}
+                      </div>
+                      {isCull && (
+                        <div className="text-[10px] font-black text-red-600 mt-1 uppercase tracking-widest animate-pulse">
+                          🔥 Biohazard
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      <span
+                        className={`text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest ${
+                          r.destinationType === "Slaughter"
+                            ? "bg-orange-100 text-orange-700"
+                            : r.destinationType === "Cull"
+                              ? "bg-red-600 text-white shadow-md shadow-red-200"
+                              : "bg-purple-100 text-purple-700"
+                        }`}
+                      >
+                        {r.destinationType}
+                      </span>
+                      <div className="text-xs font-bold text-slate-700 mt-2">
+                        Qty: {r.transferQuantity} heads
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {isCull
+                          ? `Method: ${r.receiverDetails?.address}`
+                          : r.receiverDetails?.name}
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <a
+                        href={r.proofDocumentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex items-center gap-2 font-medium text-sm hover:underline px-3 py-2 rounded-lg w-fit ${isCull ? "text-red-700 bg-red-100/50" : "text-blue-600 bg-blue-50"}`}
+                      >
+                        📄 View {isCull ? "Disposal Photo" : "Receipt"}
+                      </a>
+                    </td>
+                    <td className="p-4 text-center">
+                      <div className="flex justify-center gap-2">
+                        <button
+                          onClick={() => handleDecision("REJECT", r)}
+                          className="px-3 py-2 rounded-lg text-xs font-bold bg-white text-red-600 hover:bg-red-50 transition border border-red-200"
+                          disabled={processing}
+                        >
+                          Reject
+                        </button>
+                        <button
+                          onClick={() => handleDecision("APPROVE", r)}
+                          className={`px-4 py-2 rounded-lg text-xs font-black text-white shadow-md transition uppercase tracking-widest ${isCull ? "bg-red-600 hover:bg-red-700 shadow-red-300" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200"}`}
+                          disabled={processing}
+                        >
+                          {processing
+                            ? "..."
+                            : isCull
+                              ? "Verify Burn"
+                              : "Verify Exit"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

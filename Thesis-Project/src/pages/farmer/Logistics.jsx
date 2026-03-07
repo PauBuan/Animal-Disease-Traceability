@@ -22,6 +22,17 @@ export default function Logistics() {
     transferQuantity: "",
   });
 
+  // --- NEW: CULL WORKFLOW STATE ---
+  const [cullOrders, setCullOrders] = useState([]);
+  const [cullModal, setCullModal] = useState({
+    isOpen: false,
+    animal: null,
+    disposalDate: "",
+    disposalMethod: "Deep Burial",
+    proofFile: null,
+    transferQuantity: "",
+  });
+
   const currentUser = localStorage.getItem("username");
 
   const getMinDate = () => {
@@ -42,6 +53,12 @@ export default function Logistics() {
       );
       const data = await res.json();
       setAnimals(data || []);
+
+      // --- FILTER CULL ORDERS ---
+      const pendingCulls = (data || []).filter(
+        (a) => a.status === "Cull Ordered",
+      );
+      setCullOrders(pendingCulls);
     } catch (err) {
       console.error("Inventory Error");
     }
@@ -98,7 +115,7 @@ export default function Logistics() {
     }
   };
 
-  // --- RECEIVER CONFIRMING RECEIPT (Re-Added Function) ---
+  // --- RECEIVER CONFIRMING RECEIPT ---
   const handleReceive = async (requestId) => {
     if (
       !confirm(
@@ -130,9 +147,11 @@ export default function Logistics() {
       alert("Error: " + err.message);
     }
   };
+
   // Helper to get max quantity of selected batch
   const selectedAnimalData = animals.find((a) => a.batchId === selectedBatch);
   const maxQty = selectedAnimalData ? selectedAnimalData.quantity : 0;
+
   // --- SENDER SUBMITTING NEW REQUEST ---
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -173,6 +192,48 @@ export default function Logistics() {
     }
   };
 
+  // --- NEW: SUBMITTING CULL DISPOSAL ---
+  const handleCullSubmit = async (e) => {
+    e.preventDefault();
+    if (!cullModal.proofFile)
+      return alert("You must attach a proof of disposal document or photo.");
+    if (
+      !cullModal.transferQuantity ||
+      cullModal.transferQuantity > cullModal.animal.quantity
+    ) {
+      return alert("Invalid quantity.");
+    }
+
+    const fd = new FormData();
+    fd.append("batchId", cullModal.animal.batchId);
+    fd.append("farmerUsername", currentUser);
+    fd.append("transferQuantity", cullModal.transferQuantity);
+    fd.append("disposalDate", cullModal.disposalDate);
+    fd.append("disposalMethod", cullModal.disposalMethod);
+    fd.append("proofFile", cullModal.proofFile);
+
+    try {
+      const res = await fetch(
+        "http://localhost:3001/api/transfers/submit-cull",
+        {
+          method: "POST",
+          body: fd,
+        },
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit cull");
+
+      alert("Cull Disposal Submitted! Awaiting Regulator Verification.");
+      setCullModal({ ...cullModal, isOpen: false, proofFile: null });
+      fetchInventory();
+      fetchMovements();
+      setActiveTab("outgoing");
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  };
+
   const StatusBadge = ({ status }) => {
     let color = "bg-slate-100 text-slate-600 border-slate-200";
     if (status === "Pending Vet Review")
@@ -182,7 +243,10 @@ export default function Logistics() {
     if (status.includes("Completed"))
       color = "bg-emerald-100 text-emerald-700 border-emerald-200";
     if (status === "Rejected") color = "bg-red-100 text-red-700 border-red-200";
-    if (status === "Pending Regulator Verification")
+    if (
+      status === "Pending Regulator Verification" ||
+      status === "Pending Cull Verification"
+    )
       color = "bg-purple-100 text-purple-700 border-purple-200";
 
     return (
@@ -204,6 +268,51 @@ export default function Logistics() {
           Manage asset transfers, Health Certificates, and receipts.
         </p>
       </header>
+
+      {/* --- NEW: CRITICAL CULL WARNING BANNER --- */}
+      {cullOrders.length > 0 && (
+        <div className="w-full max-w-4xl mb-8 space-y-4">
+          {cullOrders.map((animal) => (
+            <div
+              key={animal.batchId}
+              className="bg-red-600 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between shadow-lg shadow-red-200 border border-red-700"
+            >
+              <div className="flex items-center gap-4 text-white">
+                <div className="text-4xl animate-pulse">⚠️</div>
+                <div>
+                  <h3 className="font-black uppercase tracking-widest text-lg">
+                    Mandatory Cull Order
+                  </h3>
+                  <p className="text-red-100 font-medium text-sm mt-1">
+                    Batch{" "}
+                    <span className="font-bold bg-red-700 px-2 py-0.5 rounded">
+                      {animal.batchId}
+                    </span>{" "}
+                    ({animal.quantity} heads) has been diagnosed with{" "}
+                    {animal.diagnosedDisease}. It must be disposed of
+                    immediately.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() =>
+                  setCullModal({
+                    isOpen: true,
+                    animal: animal,
+                    disposalDate: new Date().toISOString().split("T")[0],
+                    disposalMethod: "Deep Burial",
+                    proofFile: null,
+                    transferQuantity: animal.quantity, // Default to full batch
+                  })
+                }
+                className="mt-4 md:mt-0 bg-white text-red-700 px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-red-50 transition shadow-md whitespace-nowrap"
+              >
+                Upload Proof of Disposal
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Hidden File Input for Senders */}
       <input
@@ -268,17 +377,22 @@ export default function Logistics() {
                     key={a.batchId}
                     value={a.batchId}
                     disabled={
-                      a.severity !== "safe" || a.status === "Pending Transfer"
+                      a.severity !== "safe" ||
+                      a.status.includes("Pending") ||
+                      a.status === "Cull Ordered"
                     }
                   >
                     [{a.batchId}] {a.species} ({a.quantity}) -{" "}
                     {a.status === "Pending Transfer"
                       ? "🔒 Pending Transfer"
-                      : a.severity === "safe"
-                        ? "✅ Ready"
-                        : a.severity === "Ongoing"
-                          ? "⏳ Unverified"
-                          : "⛔ Sick"}
+                      : a.status === "Cull Ordered" ||
+                          a.status === "Pending Cull Verification"
+                        ? "🔥 Cull Lock"
+                        : a.severity === "safe"
+                          ? "✅ Ready"
+                          : a.severity === "Ongoing"
+                            ? "⏳ Unverified"
+                            : "⛔ Sick"}
                   </option>
                 ))}
               </select>
@@ -402,7 +516,7 @@ export default function Logistics() {
                   Identification
                 </th>
                 <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest">
-                  Counterparty
+                  Counterparty / Destination
                 </th>
                 <th className="p-6 text-xs font-black text-slate-400 uppercase tracking-widest text-center">
                   Status / Action
@@ -414,12 +528,17 @@ export default function Logistics() {
                 outgoing.map((r) => (
                   <tr
                     key={r._id}
-                    className="hover:bg-slate-50/50 transition-colors"
+                    className={`hover:bg-slate-50/50 transition-colors ${r.destinationType === "Cull" ? "bg-red-50/20" : ""}`}
                   >
                     <td className="p-6">
                       <span className="font-mono text-xs font-black text-slate-500 bg-slate-100 px-2 py-1 rounded">
                         {r.batchId}
                       </span>
+                      {r.destinationType === "Cull" && (
+                        <span className="ml-2 text-[9px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded border border-red-200">
+                          CULL RECORD
+                        </span>
+                      )}
                     </td>
                     <td className="p-6 font-bold text-slate-700">
                       {r.destinationType === "Internal"
@@ -506,6 +625,128 @@ export default function Logistics() {
                 ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* --- NEW: CULL DISPOSAL UPLOAD MODAL --- */}
+      {cullModal.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-red-100">
+            <div className="bg-red-600 p-6 flex justify-between items-center text-white">
+              <h3 className="font-black text-xl tracking-tight">
+                Record Farm Disposal
+              </h3>
+              <button
+                onClick={() => setCullModal({ ...cullModal, isOpen: false })}
+                className="w-8 h-8 rounded-full bg-red-700 hover:bg-red-800 flex items-center justify-center font-bold transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-8 space-y-5">
+              <form onSubmit={handleCullSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+                    Quantity Culled
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={cullModal.animal.quantity}
+                    value={cullModal.transferQuantity}
+                    onChange={(e) =>
+                      setCullModal({
+                        ...cullModal,
+                        transferQuantity: e.target.value,
+                      })
+                    }
+                    className="w-full p-3 border-2 border-slate-200 rounded-xl outline-none focus:border-red-500 font-bold"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    If only part of the batch was culled, enter the exact
+                    amount.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+                      Disposal Method
+                    </label>
+                    <select
+                      value={cullModal.disposalMethod}
+                      onChange={(e) =>
+                        setCullModal({
+                          ...cullModal,
+                          disposalMethod: e.target.value,
+                        })
+                      }
+                      className="w-full p-3 border-2 border-slate-200 rounded-xl outline-none focus:border-red-500 font-bold"
+                    >
+                      <option>Deep Burial</option>
+                      <option>Incineration</option>
+                      <option>Chemical Rendering</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      max={new Date().toISOString().split("T")[0]}
+                      value={cullModal.disposalDate}
+                      onChange={(e) =>
+                        setCullModal({
+                          ...cullModal,
+                          disposalDate: e.target.value,
+                        })
+                      }
+                      className="w-full p-3 border-2 border-slate-200 rounded-xl outline-none focus:border-red-500 font-bold text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-red-50 p-5 rounded-2xl border border-red-100">
+                  <label className="block text-xs font-black text-red-600 uppercase tracking-widest mb-3 text-center">
+                    Upload Required Proof
+                  </label>
+                  <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-red-300 border-dashed rounded-xl cursor-pointer bg-white hover:bg-red-50 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <span className="text-xl mb-1 text-red-400">📸</span>
+                      <p className="text-xs text-slate-500 font-medium">
+                        Click to attach photo or PDF
+                      </p>
+                    </div>
+                    <input
+                      type="file"
+                      required
+                      className="hidden"
+                      accept="image/*,.pdf"
+                      onChange={(e) =>
+                        setCullModal({
+                          ...cullModal,
+                          proofFile: e.target.files[0],
+                        })
+                      }
+                    />
+                  </label>
+                  {cullModal.proofFile && (
+                    <p className="text-[10px] text-red-700 font-bold mt-3 text-center truncate px-2">
+                      ✅ {cullModal.proofFile.name}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-xl shadow-lg shadow-red-200 transition-all uppercase tracking-widest active:scale-95"
+                >
+                  Submit for Verification
+                </button>
+              </form>
+            </div>
+          </div>
         </div>
       )}
     </div>
