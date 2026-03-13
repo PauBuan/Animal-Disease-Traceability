@@ -38,3 +38,19 @@ export const fetchUsers = async () => {
     throw error.response ? error.response.data : { error: "Network Error" };
   }
 };
+
+//RESET PASSWORD OTP
+export const requestOTP = async (identifier) => {
+    const response = await axios.post(`${API_URL}/auth/forgot-password`, { identifier });
+    return response.data;
+};
+
+export const resetPassword = async (identifier, otp, newPassword) => {
+    const response = await axios.post(`${API_URL}/auth/reset-password`, { identifier, otp, newPassword });
+    return response.data;
+};
+
+export const verifyOTP = async (identifier, otp) => {
+    const response = await axios.post(`${API_URL}/auth/verify-otp`, { identifier, otp });
+    return response.data;
+};

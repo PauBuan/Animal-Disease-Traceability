@@ -15,6 +15,8 @@ import "./assets/styles/App.css";
 import Login from "./pages/auth/Login";
 import MovementMap from "./pages/public/MovementMap";
 import FAQ from "./pages/public/FAQ";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+
 // import PublicLedger from "./pages/public/PublicLedger";
 import Table from "./components/common/Table";
 import OutbreakStats from "./components/charts/OutbreakStats";
@@ -122,6 +124,9 @@ export default function App() {
           <Route path="animal-movement" element={<MovementMap />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="forgot-password" element={<ForgotPassword />} />
+
           {/* <Route path="TransactionsPage" element={<PublicLedger />} /> */}
 
           {/* Note: In a real app, 'Table' and 'Stats' usually aren't full pages, 
@@ -140,6 +145,7 @@ export default function App() {
 
         {/* 2. Admin Login Route */}
         <Route path="/adminlogin" element={<AdminLogin />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* --- VETERINARIAN ROUTES (R2) --- */}
         <Route path="/vet" element={<VetLayout />}>

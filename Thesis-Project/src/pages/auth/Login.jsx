@@ -111,6 +111,12 @@ const Login = () => {
             />
           </div>
 
+          <div className="text-right mt-1">
+            <Link to="/forgot-password" size="sm" className="text-xs text-[var(--green)] hover:underline">
+              Forgot password?
+            </Link>
+          </div>
+
           <button
             type="submit"
             className="w-full bg-[var(--green)] text-white py-3 rounded-xl hover:bg-[var(--light-green)] hover:text-[var(--green)] transition font-medium shadow-md"
