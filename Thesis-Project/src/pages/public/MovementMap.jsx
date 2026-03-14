@@ -422,7 +422,7 @@ export default function AnimalMovement() {
         <div className="flex-1 flex flex-col gap-6 sm:gap-8">
           <div className="group bg-white rounded-[2.5rem] sm:rounded-[3.5rem] border border-slate-200 shadow-xl p-6 sm:p-8 lg:p-10 flex flex-col flex-grow min-h-[500px] sm:min-h-[750px] relative z-0">
             <div className="mb-6 sm:mb-8 px-2">
-              <h2 className="text-3xl sm:text-4xl font-black text-slate-900">Livestock Geographic Map</h2>
+              <h2 className="text-3xl sm:text-4xl font-black text-slate-900">Livestock Geographic Heatmap</h2>
               <p className="text-xs sm:text-sm font-bold text-slate-500 uppercase tracking-[0.2em] mt-2">
                 Real-Time Health Monitoring
               </p>
