@@ -48,17 +48,10 @@ export default function Register() {
     setError("");
     setLoading(true);
 
-    // --- 1. FORMAT AND VALIDATE CONTACT NUMBER ---
-    // This converts 0917... to +63917...
     let formattedContact = formData.contactNumber;
-    if (formattedContact.startsWith('0')) {
-      formattedContact = '+63' + formattedContact.substring(1);
-    } else if (!formattedContact.startsWith('+63')) {
-      formattedContact = '+63' + formattedContact;
-    }
 
-    // Validate the new formatted length (+63 + 10 digits = 13 characters)
-    if (!/^\+63\d{10}$/.test(formattedContact)) {
+    // Simple validation for exactly 11 digits starting with 0
+    if (!/^0\d{10}$/.test(formattedContact)) {
       setError("Please enter a valid 11-digit mobile number (e.g., 09123456789).");
       setLoading(false);
       return;
